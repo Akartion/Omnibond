@@ -266,9 +266,11 @@ def run_selftest() -> int:
         assert direct_entry["active_connections"] == 3
         assert direct_entry["last_adapter_ip"] == "127.0.0.1"
         assert OmniBondDesktopGUI._split_app_title("Google Chrome", "chrome.exe") == ("Google Chrome", "chrome.exe")
-        assert [c[0] for c in OmniBondDesktopGUI.APP_ACCENT_PALETTE] == [
+        assert len(OmniBondDesktopGUI.APP_ACCENT_PALETTE) == 16
+        assert [c[0] for c in OmniBondDesktopGUI.APP_ACCENT_PALETTE[:6]] == [
             "#38bdf8", "#fb923c", "#34d399", "#a78bfa", "#facc15", "#f472b6"
         ]
+        assert OmniBondDesktopGUI._blend_hex("#14141d", "#38bdf8", 0.35).startswith("#")
         print("[4/6] Proxy and direct per-app TCP/UDP speed history, connection counts & Desktop UI parity verified.")
 
         limit_path = os.path.join(tmp_dir, "adapter_limits.json")

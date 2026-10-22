@@ -178,11 +178,11 @@ WEB_UI_HTML = """<!DOCTYPE html>
     background: var(--panel);
     border-right: 1px solid var(--hairline);
     border-bottom: 1px solid var(--hairline);
-    padding: 13px 15px;
+    padding: 16px 16px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    min-height: 178px;
+    min-height: 208px;
     min-width: 0;
     overflow: hidden;
     transition: background 0.15s;
@@ -193,7 +193,7 @@ WEB_UI_HTML = """<!DOCTYPE html>
     justify-content: space-between;
     align-items: center;
     gap: 8px;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
   }
   .num-badge {
     font-family: 'Consolas', monospace;
@@ -251,7 +251,7 @@ WEB_UI_HTML = """<!DOCTYPE html>
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
     min-width: 0;
     width: 100%;
     padding-right: 4px;
@@ -338,8 +338,8 @@ WEB_UI_HTML = """<!DOCTYPE html>
   .sparkline-box {
     background: #07070a;
     border: 1px solid #181820;
-    padding: 4px 6px;
-    margin-bottom: 8px;
+    padding: 6px 8px;
+    margin-bottom: 11px;
   }
   .sparkline-head {
     display: flex;
@@ -390,14 +390,14 @@ WEB_UI_HTML = """<!DOCTYPE html>
     cursor:pointer;
     transition: border-color 0.14s ease, background-color 0.14s ease, color 0.14s ease;
   }
-  /* Match per-application policy dropdown border, text, and static DOM chevron with the app's accent color */
+  /* Keep per-application policy dropdown text & chevron colored while using a clean neutral outline */
   .styled-select-wrap.card-select-wrap .styled-select-trigger {
     height:auto;
-    min-height:31px;
+    min-height:32px;
     padding:6px 10px;
     color:var(--app-accent, var(--text));
     background-color:#09090d;
-    border:1px solid var(--app-accent, #272732);
+    border:1px solid #22222c;
     font-size:10.5px;
     font-weight:800;
     text-transform:uppercase;
@@ -405,11 +405,12 @@ WEB_UI_HTML = """<!DOCTYPE html>
   .styled-select-wrap.card-select-wrap .styled-select-trigger:hover,
   .styled-select-wrap.card-select-wrap.open .styled-select-trigger {
     background-color:#12121a;
-    border-color:var(--app-accent, var(--amber));
-    box-shadow: 0 0 0 1px var(--app-accent, var(--amber));
+    border-color:#3a3a48;
+    box-shadow:none;
   }
-  .styled-select-wrap.filter-select-wrap { flex:0 0 142px; height:31px; }
-  .styled-select-wrap.sort-select-wrap { flex:0 0 154px; height:31px; margin-left:0; }
+  .styled-select-wrap.filter-select-wrap { flex:0 0 136px; height:31px; }
+  .styled-select-wrap.sort-select-wrap { flex:0 0 148px; height:31px; margin-left:0; }
+  .styled-select-wrap.color-select-wrap { flex:0 0 152px; height:31px; margin-left:0; }
   .styled-select-wrap.limit-unit-select-wrap { flex:0 0 74px; }
   .styled-select-trigger-label {
     min-width:0;
@@ -447,7 +448,7 @@ WEB_UI_HTML = """<!DOCTYPE html>
     padding:4px;
     color:var(--text);
     background:#101016;
-    border:1px solid var(--app-accent, #3a3a46);
+    border:1px solid #30303b;
     box-shadow:0 12px 30px rgba(0,0,0,.55);
   }
   .styled-select-wrap.open .styled-select-menu { display:block; }
@@ -718,6 +719,7 @@ WEB_UI_HTML = """<!DOCTYPE html>
       <button class="btn" title="Configure Windows multi-network and IP route optimization" onclick="openNetworkTuning()">⚙ Network Tuning</button>
       <button class="btn" title="Reset Windows proxy to Direct, restore automatic interface metrics, and flush DNS" onclick="repairNetwork()">✚ Repair Network</button>
       <button class="btn" id="btnGraphMode" aria-live="polite" aria-pressed="false" onclick="toggleGraphMode()">∿ Master Speed</button>
+      <button class="btn" id="btnHideIps" aria-live="polite" aria-pressed="false" title="Hide or show all IP addresses across the dashboard" onclick="toggleHideIps()">👁 Hide IPs</button>
       <button class="btn" title="Re-scan Windows network adapters and IPv4 addresses" onclick="refreshAdapters()">⟳ Rescan Adapters</button>
     </div>
   </div>
@@ -777,6 +779,19 @@ WEB_UI_HTML = """<!DOCTYPE html>
             <option value="ZA">Name: Z-A</option>
             <option value="FAST">Speed: High–Low</option>
             <option value="SLOW">Speed: Low–High</option>
+          </select>
+          <select class="color-select" id="appColorSelect" aria-label="Application card color palette" title="Choose the accent color palette for application cards" onchange="setAppColorTheme(this.value)">
+            <option value="MULTI">Palette: Multi (16)</option>
+            <option value="CYAN">Theme: Sky Cyan</option>
+            <option value="ORANGE">Theme: Sunset Orange</option>
+            <option value="EMERALD">Theme: Emerald Mint</option>
+            <option value="VIOLET">Theme: Royal Violet</option>
+            <option value="AMBER">Theme: Amber Gold</option>
+            <option value="ROSE">Theme: Rose Neon</option>
+            <option value="CORAL">Theme: Coral Red</option>
+            <option value="TEAL">Theme: Cyber Teal</option>
+            <option value="INDIGO">Theme: Indigo Pulse</option>
+            <option value="LIME">Theme: Lime Matrix</option>
           </select>
         </div>
         <div class="router-tool-group">
@@ -882,10 +897,68 @@ let allProcesses = [];
 let currentFilter = 'ALL';
 let currentAppView = localStorage.getItem('omnibond-app-view') || 'grid';
 let currentAppSort = localStorage.getItem('omnibond-app-sort') || 'AZ';
+let currentAppColorTheme = localStorage.getItem('omnibond-app-color') || 'MULTI';
+let hideIps = localStorage.getItem('omnibond-hide-ips') === 'true';
 let graphMode = localStorage.getItem('omnibond-graph-mode') === 'bonded' ? 'bonded' : 'master';
 let peakTotalBps = 0;
 let renderedAppStructure = '';
 document.getElementById('appSortSelect').value = currentAppSort;
+document.getElementById('appColorSelect').value = currentAppColorTheme;
+
+const APP_PALETTE_COLORS = [
+  '#38bdf8', '#fb923c', '#34d399', '#a78bfa',
+  '#facc15', '#f472b6', '#f87171', '#2dd4bf',
+  '#818cf8', '#a3e635', '#e879f9', '#fb7185',
+  '#60a5fa', '#fdba74', '#6ee7b7', '#fde047'
+];
+const APP_THEME_MAP = {
+  CYAN: '#38bdf8',
+  ORANGE: '#fb923c',
+  EMERALD: '#34d399',
+  VIOLET: '#a78bfa',
+  AMBER: '#facc15',
+  ROSE: '#f472b6',
+  CORAL: '#f87171',
+  TEAL: '#2dd4bf',
+  INDIGO: '#818cf8',
+  LIME: '#a3e635'
+};
+
+function getAppAccentColor(idx) {
+  if (currentAppColorTheme !== 'MULTI' && APP_THEME_MAP[currentAppColorTheme]) {
+    return APP_THEME_MAP[currentAppColorTheme];
+  }
+  return APP_PALETTE_COLORS[idx % APP_PALETTE_COLORS.length];
+}
+
+function maskIp(ip) {
+  const s = String(ip || '').trim();
+  if (!s || s === '-') return s || '-';
+  return hideIps ? '•••.•••.•••.•••' : s;
+}
+
+function updateHideIpsButton() {
+  const btn = document.getElementById('btnHideIps');
+  if (!btn) return;
+  btn.textContent = hideIps ? '👁 Show IPs' : '👁 Hide IPs';
+  btn.classList.toggle('active', hideIps);
+  btn.setAttribute('aria-pressed', String(hideIps));
+}
+
+function toggleHideIps() {
+  hideIps = !hideIps;
+  localStorage.setItem('omnibond-hide-ips', String(hideIps));
+  updateHideIpsButton();
+  renderedAppStructure = '';
+  fetchState();
+}
+
+function setAppColorTheme(theme) {
+  currentAppColorTheme = theme || 'MULTI';
+  localStorage.setItem('omnibond-app-color', currentAppColorTheme);
+  renderedAppStructure = '';
+  if (latestState) fetchState();
+}
 
 function adapterSpeed(adapter) {
   return graphMode === 'master' ? (adapter.system_bps || 0) : (adapter.bps || 0);
@@ -1002,7 +1075,9 @@ function syncStyledSelect(select) {
         ? 'filter-select-wrap'
         : (select.classList.contains('sort-select')
           ? 'sort-select-wrap'
-          : (select.dataset.limitField === 'cycle_unit' ? 'limit-unit-select-wrap' : '')));
+          : (select.classList.contains('color-select')
+            ? 'color-select-wrap'
+            : (select.dataset.limitField === 'cycle_unit' ? 'limit-unit-select-wrap' : ''))));
     wrap.className = `styled-select-wrap ${typeClass}`.trim();
     select.parentNode.insertBefore(wrap, select);
     wrap.appendChild(select);
@@ -1442,8 +1517,10 @@ async function fetchState() {
     const res = await fetch('/api/state');
     const st = await res.json();
     latestState = st;
+    const epHost = maskIp('127.0.0.1');
     document.getElementById('serverEndpoints').textContent =
-      `• HTTP/HTTPS 127.0.0.1:${st.http_port} • SOCKS5 127.0.0.1:${st.socks_port} • Web Dashboard 127.0.0.1:${st.web_port}`;
+      `• HTTP/HTTPS ${epHost}:${st.http_port} • SOCKS5 ${epHost}:${st.socks_port} • Web Dashboard ${epHost}:${st.web_port}`;
+    updateHideIpsButton();
 
     let totalBps = 0, enabledCnt = 0;
     st.adapters.forEach(a => { totalBps += adapterSpeed(a); if (a.enabled) enabledCnt++; });
@@ -1481,7 +1558,7 @@ async function fetchState() {
     const prevVal = sel.value;
     let opts = '<option value="AUTO">Auto / Bonded (All adapters)</option><option value="BLOCK">Block Internet</option>';
     st.adapters.forEach((a, i) => {
-      opts += `<option value="${a.ip}">Pin to ${a.name} (${a.ip})</option>`;
+      opts += `<option value="${a.ip}">Pin to ${a.name} (${maskIp(a.ip)})</option>`;
     });
     if (sel.innerHTML !== opts) { sel.innerHTML = opts; if (prevVal) sel.value = prevVal; }
     syncStyledSelect(sel);
@@ -1492,7 +1569,7 @@ async function fetchState() {
         <div>
           <div class="card-top">
             <span class="num-badge" style="background:${a.color}">${String(idx + 1).padStart(2, '0')}</span>
-            <span class="card-meta-links">IPV4 &middot; ${a.ip} &#8599;</span>
+            <span class="card-meta-links">IPV4 &middot; ${maskIp(a.ip)} &#8599;</span>
           </div>
           <div class="card-identity">
             <div class="card-icon" style="background:${a.badge_bg}">${a.kind.slice(0,2).toUpperCase()}</div>
@@ -1519,7 +1596,6 @@ async function fetchState() {
     renderAdapterLimits(st.adapters);
 
     // 02 Applications with per-app speed sparklines & Focus button
-    const paletteColors = ['#38bdf8', '#fb923c', '#34d399', '#a78bfa', '#facc15', '#f472b6'];
     const visibleAppRules = st.app_rules.filter(matchesCurrentAppFilter);
     visibleAppRules.sort((a, b) => {
       if (currentAppSort === 'ZA') return b.display_name.localeCompare(a.display_name, undefined, {sensitivity: 'base'});
@@ -1535,6 +1611,8 @@ async function fetchState() {
       currentFilter,
       currentAppView,
       currentAppSort,
+      currentAppColorTheme,
+      hideIps,
       graphMode,
       visibleAppRules.map(r => r.app_name),
       visibleAppRules.map(r => [
@@ -1545,13 +1623,13 @@ async function fetchState() {
     ]);
     if (!appPolicyFocused && appStructure !== renderedAppStructure) {
       appGrid.innerHTML = visibleAppRules.map((r, idx) => {
-      const col = paletteColors[idx % paletteColors.length];
+      const col = getAppAccentColor(idx);
       const [mainTitle, subExt] = splitAppTitle(r.display_name, r.app_name);
       const selectedRule = r.rule;
       let rowOpts = `<option value="AUTO" ${selectedRule === 'AUTO' ? 'selected' : ''}>Auto / Bonded</option>
         <option value="BLOCK" ${selectedRule === 'BLOCK' ? 'selected' : ''}>Block Internet</option>`;
       st.adapters.forEach(a => {
-        rowOpts += `<option value="${a.ip}" ${selectedRule === a.ip ? 'selected' : ''}>${a.name} (${a.ip})</option>`;
+        rowOpts += `<option value="${a.ip}" ${selectedRule === a.ip ? 'selected' : ''}>${a.name} (${maskIp(a.ip)})</option>`;
       });
       const subText = r.rule === 'BLOCK'
         ? 'Internet Disabled'
@@ -1589,8 +1667,8 @@ async function fetchState() {
               </div>
               <canvas class="app-spark" id="spark_${idx}" width="190" height="32"></canvas>
             </div>
-            <div id="app_summary_${idx}" style="font-size:10.5px;color:var(--dim);margin-bottom:8px;">
-              IP: ${r.last_adapter_ip} &middot; Conns: ${r.active_connections} (${r.total_connections}) &middot; ${fmtBytes(r.bytes_transferred)}
+            <div id="app_summary_${idx}" style="font-size:10.5px;color:var(--dim);margin-bottom:12px;">
+              IP: ${maskIp(r.last_adapter_ip)} &middot; Conns: ${r.active_connections} (${r.total_connections}) &middot; ${fmtBytes(r.bytes_transferred)}
             </div>
           </div>
           <div class="card-actions">
@@ -1606,14 +1684,14 @@ async function fetchState() {
       renderedAppStructure = appStructure;
     }
     visibleAppRules.forEach((r, idx) => {
-      const col = paletteColors[idx % paletteColors.length];
+      const col = getAppAccentColor(idx);
       const speedNode = document.getElementById(`app_speed_${idx}`);
       const summaryNode = document.getElementById(`app_summary_${idx}`);
       const descriptionNode = document.getElementById(`app_desc_${idx}`);
       if (speedNode) speedNode.textContent = fmtSpeed(appSpeed(r));
       if (summaryNode) {
         summaryNode.textContent =
-          `IP: ${r.last_adapter_ip} · Conns: ${r.active_connections} (${r.total_connections}) · ${fmtBytes(r.bytes_transferred)}`;
+          `IP: ${maskIp(r.last_adapter_ip)} · Conns: ${r.active_connections} (${r.total_connections}) · ${fmtBytes(r.bytes_transferred)}`;
       }
       if (descriptionNode) {
         const subText = r.rule === 'BLOCK'
@@ -1934,6 +2012,7 @@ syncStyledSelects();
 loadRunningApps();
 setAppView(currentAppView);
 updateGraphModeButton();
+updateHideIpsButton();
 fetchState();
 setInterval(fetchState, 1200);
 </script>

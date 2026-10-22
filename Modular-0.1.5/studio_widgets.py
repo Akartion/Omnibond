@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-OmniBond - Custom Dark Studio UI Components: Hover Tooltips & Dropdowns.
+OmniBond - Custom Dark Studio UI Components: Hover Tooltips, Scrollbars & Dropdowns.
 """
 
 from __future__ import annotations
@@ -9,10 +9,12 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 from config import _TkFrameBase, tk
 
-__all__ = ["StudioTooltip", "StudioDropdown"]
+_TkCanvasBase = tk.Canvas if tk is not None else object
+
+__all__ = ["StudioTooltip", "StudioDropdown", "StudioScrollbar"]
 
 # =====================================================================
-# 9. CUSTOM STUDIO UI COMPONENTS: HOVER TOOLTIPS, MODERN DROPDOWN & BUTTONS
+# 9. CUSTOM STUDIO UI COMPONENTS: HOVER TOOLTIPS, SCROLLBAR & DROPDOWN
 # =====================================================================
 
 class StudioTooltip:
@@ -63,7 +65,7 @@ class StudioTooltip:
             win = tk.Toplevel(self.root)
             win.wm_overrideredirect(True)
             win.attributes("-topmost", True)
-            win.configure(bg="#f59e0b")
+            win.configure(bg="#30303b")
 
             inner = tk.Frame(win, bg="#101016", padx=10, pady=7)
             inner.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
@@ -114,13 +116,135 @@ class StudioTooltip:
         self._current_text = ""
 
 
+class StudioScrollbar(_TkCanvasBase):
+    """
+    Sleek dark-mode custom Canvas scrollbar that replaces the thick white native Win32 tk.Scrollbar.
+    Supports both vertical and horizontal orientations and automatically hides itself when
+    the scrollable content fits inside the viewport.
+    """
+
+    def __init__(
+        self,
+        parent: tk.Widget,
+        orient: str = getattr(tk, "VERTICAL", "vertical"),
+        command: Optional[Callable] = None,
+        thickness: int = 6,
+        track_bg: str = "#0c0c0f",
+        thumb_bg: str = "#272732",
+        thumb_hover_bg: str = "#3f3f46",
+        auto_hide: bool = True,
+    ):
+        self.orient = orient
+        self.command = command
+        self.thickness = thickness
+        self.track_bg = track_bg
+        self.thumb_bg = thumb_bg
+        self.thumb_hover_bg = thumb_hover_bg
+        self.auto_hide = auto_hide
+        self._first: float = 0.0
+        self._last: float = 1.0
+        self._hovered: bool = False
+        self._dragging: bool = False
+        self._drag_start_coord: float = 0.0
+        self._drag_start_first: float = 0.0
+        self._grid_kwargs: Optional[Dict] = None
+
+        init_kw = {"bg": track_bg, "highlightthickness": 0, "bd": 0}
+        if orient == getattr(tk, "VERTICAL", "vertical"):
+            init_kw["width"] = thickness
+        else:
+            init_kw["height"] = thickness
+        super().__init__(parent, **init_kw)
+
+        self.bind("<Configure>", lambda _e: self._redraw())
+        self.bind("<Enter>", self._on_enter)
+        self.bind("<Leave>", self._on_leave)
+        self.bind("<ButtonPress-1>", self._on_press)
+        self.bind("<B1-Motion>", self._on_drag)
+        self.bind("<ButtonRelease-1>", self._on_release)
+
+    def grid(self, **kwargs):
+        if kwargs:
+            self._grid_kwargs = dict(kwargs)
+        super().grid(**(self._grid_kwargs or {}))
+
+    def set(self, first: float | str, last: float | str):
+        try:
+            f_val = max(0.0, min(1.0, float(first)))
+            l_val = max(0.0, min(1.0, float(last)))
+        except ValueError:
+            f_val, l_val = 0.0, 1.0
+        self._first, self._last = f_val, l_val
+
+        if self.auto_hide and self._grid_kwargs is not None:
+            if f_val <= 0.001 and l_val >= 0.999:
+                super().grid_remove()
+                return
+            if not self.winfo_ismapped():
+                super().grid(**self._grid_kwargs)
+        self._redraw()
+
+    def _redraw(self):
+        self.delete("all")
+        if self._first <= 0.001 and self._last >= 0.999:
+            return
+        w = max(1, self.winfo_width())
+        h = max(1, self.winfo_height())
+        col = self.thumb_hover_bg if (self._hovered or self._dragging) else self.thumb_bg
+        if self.orient == getattr(tk, "VERTICAL", "vertical"):
+            y0 = max(2, int(self._first * h))
+            y1 = min(h - 2, max(y0 + 18, int(self._last * h)))
+            self.create_rectangle(1, y0, w - 1, y1, fill=col, outline="")
+        else:
+            x0 = max(2, int(self._first * w))
+            x1 = min(w - 2, max(x0 + 18, int(self._last * w)))
+            self.create_rectangle(x0, 1, x1, h - 1, fill=col, outline="")
+
+    def _on_enter(self, _event):
+        self._hovered = True
+        self._redraw()
+
+    def _on_leave(self, _event):
+        self._hovered = False
+        self._redraw()
+
+    def _on_press(self, event):
+        if not self.command:
+            return
+        total = max(1, self.winfo_height() if self.orient == tk.VERTICAL else self.winfo_width())
+        coord = event.y if self.orient == getattr(tk, "VERTICAL", "vertical") else event.x
+        t0 = self._first * total
+        t1 = self._last * total
+        if t0 <= coord <= t1:
+            self._dragging = True
+            self._drag_start_coord = coord
+            self._drag_start_first = self._first
+        else:
+            span = self._last - self._first
+            target = max(0.0, min(1.0 - span, (coord / total) - span / 2.0))
+            self.command("moveto", target)
+
+    def _on_drag(self, event):
+        if not self._dragging or not self.command:
+            return
+        total = max(1, self.winfo_height() if self.orient == tk.VERTICAL else self.winfo_width())
+        coord = event.y if self.orient == getattr(tk, "VERTICAL", "vertical") else event.x
+        delta = (coord - self._drag_start_coord) / total
+        span = self._last - self._first
+        target = max(0.0, min(1.0 - span, self._drag_start_first + delta))
+        self.command("moveto", target)
+
+    def _on_release(self, _event):
+        self._dragging = False
+        self._redraw()
+
+
 class StudioDropdown(_TkFrameBase):
     """
-    Custom Dark-Mode Dropdown Selector that replaces the glaring white Win32 ttk.Combobox.
+    Custom Dark-Mode Dropdown Selector that matches the Web UI's .styled-select-trigger & .styled-select-menu.
     Supports:
-    - Live Search / Filter input box inside the popup
-    - Category Filter Tabs (e.g. ALL | USER APPS | ACTIVE NET | PINNED | BG)
-    - Rich item rows with category badge, main label, and right-aligned subtitle
+    - Compact mode (clean single-label options without overlapping badges/meta)
+    - Rich searchable mode (with Live Search & Category Filter Tabs for Add Program)
     - Global outside-click dismissal across root and modal Toplevel dialogs
     """
 
@@ -138,11 +262,11 @@ class StudioDropdown(_TkFrameBase):
     ):
         super().__init__(
             parent,
-            bg="#121218",
+            bg="#14141b",
             highlightthickness=1,
             highlightbackground="#272732",
             width=width_px,
-            height=30,
+            height=31,
         )
         self.pack_propagate(False)
         self.root = root
@@ -159,11 +283,11 @@ class StudioDropdown(_TkFrameBase):
         self.lbl_text = tk.Label(
             self,
             text=self._selected_label,
-            bg="#121218",
+            bg="#14141b",
             fg="#fafafa",
-            font=("Segoe UI", 9, "bold"),
+            font=("Segoe UI", 8, "bold"),
             anchor="w",
-            padx=10,
+            padx=9,
             cursor="hand2",
         )
         self.lbl_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -171,10 +295,10 @@ class StudioDropdown(_TkFrameBase):
         self.lbl_arrow = tk.Label(
             self,
             text="▾",
-            bg="#181822",
+            bg="#14141b",
             fg="#f59e0b",
-            font=("Consolas", 10, "bold"),
-            width=3,
+            font=("Consolas", 9, "bold"),
+            padx=7,
             cursor="hand2",
         )
         self.lbl_arrow.pack(side=tk.RIGHT, fill=tk.Y)
@@ -213,13 +337,15 @@ class StudioDropdown(_TkFrameBase):
         active._close_popup()
 
     def _on_hover_enter(self, _e):
-        self.configure(highlightbackground="#f59e0b")
-        self.lbl_arrow.configure(bg="#272734")
+        self.configure(bg="#1f1f2a", highlightbackground="#f59e0b")
+        self.lbl_text.configure(bg="#1f1f2a")
+        self.lbl_arrow.configure(bg="#1f1f2a")
 
     def _on_hover_leave(self, _e):
         if not self._popup:
-            self.configure(highlightbackground="#272732")
-            self.lbl_arrow.configure(bg="#181822")
+            self.configure(bg="#14141b", highlightbackground="#272732")
+            self.lbl_text.configure(bg="#14141b")
+            self.lbl_arrow.configure(bg="#14141b")
 
     def set_items(self, items: List[Dict[str, str]]):
         self._items = items
@@ -232,7 +358,8 @@ class StudioDropdown(_TkFrameBase):
             found = next((it["label"] for it in self._items if it["value"] == value), value)
             display_label = found
         self._selected_label = display_label
-        short = display_label if len(display_label) <= 34 else display_label[:32] + ".."
+        max_chars = max(12, int((self.width_px - 34) // 6.5))
+        short = display_label if len(display_label) <= max_chars else display_label[: max_chars - 1] + "…"
         self.lbl_text.configure(text=short)
 
     def get_value(self) -> str:
@@ -256,8 +383,9 @@ class StudioDropdown(_TkFrameBase):
             self._popup = None
         try:
             if self.winfo_exists():
-                self.configure(highlightbackground="#272732")
-                self.lbl_arrow.configure(bg="#181822", text="▾")
+                self.configure(bg="#14141b", highlightbackground="#272732")
+                self.lbl_text.configure(bg="#14141b")
+                self.lbl_arrow.configure(bg="#14141b", text="▾")
         except Exception:
             pass
 
@@ -272,23 +400,33 @@ class StudioDropdown(_TkFrameBase):
         pop = tk.Toplevel(self.root)
         pop.wm_overrideredirect(True)
         pop.attributes("-topmost", True)
-        pop.configure(bg="#f59e0b")
+        pop.configure(bg="#3a3a46")
         self._popup = pop
 
-        pop_w = max(self.width_px, 370 if self.categories else 270)
-        pop_h = 330 if self.categories else min(250, max(110, len(self._items) * 34 + 16))
+        has_rich_rows = bool(self.categories) or any(it.get("badge") or it.get("meta") for it in self._items)
+        row_h = 30 if has_rich_rows else 28
+        if self.categories:
+            pop_w = max(self.width_px, 380)
+            pop_h = 330
+        elif has_rich_rows:
+            pop_w = max(self.width_px, 290)
+            pop_h = min(250, max(90, len(self._items) * row_h + 10))
+        else:
+            max_lbl_len = max((len(it.get("label", "")) for it in self._items), default=14)
+            pop_w = max(self.width_px, max_lbl_len * 7 + 28)
+            pop_h = min(240, max(64, len(self._items) * row_h + 10))
 
         rx = self.winfo_rootx()
-        ry = self.winfo_rooty() + self.winfo_height() + 2
+        ry = self.winfo_rooty() + self.winfo_height() + 3
         screen_w = self.root.winfo_screenwidth()
         screen_h = self.root.winfo_screenheight()
         if rx + pop_w > screen_w - 12:
             rx = screen_w - pop_w - 12
         if ry + pop_h > screen_h - 40:
-            ry = self.winfo_rooty() - pop_h - 2
+            ry = self.winfo_rooty() - pop_h - 3
         pop.wm_geometry(f"{pop_w}x{pop_h}+{max(6, rx)}+{max(6, ry)}")
 
-        body = tk.Frame(pop, bg="#0d0d12")
+        body = tk.Frame(pop, bg="#101016", padx=4, pady=4)
         body.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
 
         search_var = tk.StringVar()
@@ -344,25 +482,25 @@ class StudioDropdown(_TkFrameBase):
                 b.bind("<Button-1>", lambda _e, cn=c_name: select_cat(cn))
                 cat_btns[c_name] = b
 
-        list_wrap = tk.Frame(body, bg="#0d0d12")
+        list_wrap = tk.Frame(body, bg="#101016")
         list_wrap.pack(fill=tk.BOTH, expand=True)
+        list_wrap.grid_rowconfigure(0, weight=1)
+        list_wrap.grid_columnconfigure(0, weight=1)
 
-        cv = tk.Canvas(list_wrap, bg="#0d0d12", highlightthickness=0, bd=0)
-        vscroll = tk.Scrollbar(
+        cv = tk.Canvas(list_wrap, bg="#101016", highlightthickness=0, bd=0)
+        vscroll = StudioScrollbar(
             list_wrap,
             orient=tk.VERTICAL,
             command=cv.yview,
-            width=8,
-            bg="#3f3f46",
-            troughcolor="#0d0d12",
-            activebackground="#52525b",
-            bd=0,
-            highlightthickness=0,
-            relief=tk.FLAT,
+            thickness=6,
+            track_bg="#101016",
+            thumb_bg="#272732",
+            thumb_hover_bg="#3f3f46",
+            auto_hide=True,
         )
         cv.configure(yscrollcommand=vscroll.set)
-        cv.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        vscroll.pack(side=tk.RIGHT, fill=tk.Y)
+        cv.grid(row=0, column=0, sticky="nsew")
+        vscroll.grid(row=0, column=1, sticky="ns")
 
         row_regions: List[Tuple[int, int, str, str]] = []
         hover_row_idx = [-1]
@@ -383,16 +521,15 @@ class StudioDropdown(_TkFrameBase):
                     continue
                 filtered.append(it)
 
-            row_h = 32
-            w_cv = pop_w - 12
+            w_cv = max(140, pop_w - 14)
             if not filtered:
                 cv.create_text(
-                    w_cv / 2, 40,
+                    w_cv / 2, 34,
                     text="No matching programs found",
                     fill="#71717a",
-                    font=("Segoe UI", 9),
+                    font=("Segoe UI", 8),
                 )
-                cv.configure(scrollregion=(0, 0, w_cv, 80))
+                cv.configure(scrollregion=(0, 0, w_cv, 70))
                 return
 
             for idx, it in enumerate(filtered):
@@ -400,31 +537,36 @@ class StudioDropdown(_TkFrameBase):
                 y1 = y0 + row_h
                 is_sel = it["value"] == self._selected_value
                 is_hov = idx == hover_row_idx[0]
-                bg_col = "#1f1f2b" if is_hov else ("#161621" if is_sel else "#0d0d12")
+                bg_col = "#1e1e28" if (is_hov or is_sel) else "#101016"
                 cv.create_rectangle(0, y0, w_cv, y1, fill=bg_col, outline="")
-                cv.create_line(0, y1 - 1, w_cv, y1 - 1, fill="#181820")
 
                 badge_txt = it.get("badge", "")
                 badge_col = it.get("color", "#38bdf8")
-                text_x = 10
+                text_x = 8
                 if badge_txt:
-                    cv.create_rectangle(8, y0 + 7, 42, y0 + 24, fill="#181824", outline=badge_col)
-                    cv.create_text(25, y0 + 15, text=badge_txt, fill=badge_col, font=("Consolas", 7, "bold"))
-                    text_x = 50
+                    cv.create_rectangle(8, y0 + 6, 40, y0 + 23, fill="#181824", outline=badge_col)
+                    cv.create_text(24, y0 + 14.5, text=badge_txt, fill=badge_col, font=("Consolas", 7, "bold"))
+                    text_x = 48
 
-                lbl_col = "#f59e0b" if is_sel else "#fafafa"
+                meta_txt = it.get("meta", "")
+                meta_px = (len(meta_txt[:22]) * 6 + 16) if meta_txt else 8
+                avail_lbl_px = max(60, w_cv - text_x - meta_px)
+                max_lbl_chars = max(10, int(avail_lbl_px // 6.8))
+                raw_lbl = it["label"]
+                lbl_str = raw_lbl if len(raw_lbl) <= max_lbl_chars else raw_lbl[: max_lbl_chars - 1] + "…"
+
+                lbl_col = "#ffffff" if (is_sel or is_hov) else "#fafafa"
                 cv.create_text(
-                    text_x, y0 + 16,
-                    text=it["label"][:28],
+                    text_x, (y0 + y1) / 2,
+                    text=lbl_str,
                     fill=lbl_col,
                     anchor="w",
-                    font=("Segoe UI", 9, "bold" if is_sel else "normal"),
+                    font=("Segoe UI", 8, "bold"),
                 )
-                meta_txt = it.get("meta", "")
                 if meta_txt:
                     cv.create_text(
-                        w_cv - 10, y0 + 16,
-                        text=meta_txt[:26],
+                        w_cv - 8, (y0 + y1) / 2,
+                        text=meta_txt[:22],
                         fill="#71717a",
                         anchor="e",
                         font=("Consolas", 8),
@@ -435,7 +577,7 @@ class StudioDropdown(_TkFrameBase):
 
         def on_cv_motion(event):
             cy = cv.canvasy(event.y)
-            new_idx = int(cy // 32)
+            new_idx = int(cy // row_h)
             if new_idx != hover_row_idx[0]:
                 hover_row_idx[0] = new_idx
                 render_rows()
