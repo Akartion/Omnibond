@@ -36,7 +36,7 @@ class StudioTooltip:
         self._mouse_x = int(x_root)
         self._mouse_y = int(y_root)
 
-    def bind_widget(self, widget: tk.Widget, title: str, description: str, delay_ms: int = 420):
+    def bind_widget(self, widget: tk.Widget, title: str, description: str, delay_ms: int = 380):
         full_text = f"{title}\n{description}" if description else title
 
         def on_enter(event):
@@ -59,7 +59,7 @@ class StudioTooltip:
     def schedule(
         self,
         text: str,
-        delay_ms: int = 420,
+        delay_ms: int = 380,
         x_root: Optional[int] = None,
         y_root: Optional[int] = None,
     ):
@@ -272,7 +272,8 @@ class StudioScrollbar(_TkCanvasBase):
 class StudioDropdown(_TkFrameBase):
     """
     Custom Dark-Mode Dropdown Selector that matches the Web UI's .styled-select-trigger & .styled-select-menu.
-    Uses color shift on hover instead of bright outlines, and cleanly toggles closed when re-clicked.
+    Uses color shift on hover instead of bright outlines, works inside modal dialogs without grab conflicts,
+    and cleanly toggles closed when re-clicked.
     """
 
     _active_dropdown: Optional["StudioDropdown"] = None
@@ -320,13 +321,14 @@ class StudioDropdown(_TkFrameBase):
         )
         self.lbl_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
+        # Larger, well-proportioned chevron icon (▼ / ▲)
         self.lbl_arrow = tk.Label(
             self,
-            text="▾",
+            text="▼",
             bg="#14141b",
             fg="#f59e0b",
-            font=("Consolas", 9, "bold"),
-            padx=7,
+            font=("Segoe UI Symbol", 8, "bold"),
+            padx=8,
             cursor="hand2",
         )
         self.lbl_arrow.pack(side=tk.RIGHT, fill=tk.Y)
@@ -344,10 +346,21 @@ class StudioDropdown(_TkFrameBase):
         if StudioDropdown._global_bind_installed:
             return
         try:
-            self.root.bind_all("<Button-1>", StudioDropdown._on_global_button_down, add="+")
+            self.root.bind_all("<ButtonPress-1>", StudioDropdown._on_global_button_down, add="+")
             StudioDropdown._global_bind_installed = True
         except Exception:
             pass
+
+    @classmethod
+    def _is_widget_inside(cls, widget: Optional[tk.Widget], container: Optional[tk.Widget]) -> bool:
+        if widget is None or container is None:
+            return False
+        try:
+            w_path = str(widget)
+            c_path = str(container)
+            return w_path == c_path or w_path.startswith(c_path + ".")
+        except Exception:
+            return False
 
     @classmethod
     def _on_global_button_down(cls, event):
@@ -355,19 +368,28 @@ class StudioDropdown(_TkFrameBase):
         if active is None or not active._popup:
             return
         w_clicked = event.widget
-        if w_clicked in (active, active.lbl_text, active.lbl_arrow):
+        if cls._is_widget_inside(w_clicked, active) or cls._is_widget_inside(w_clicked, active._popup):
             return
+        # Also verify by screen coordinates in case Windows/Tk redirected event.widget
         try:
-            if w_clicked is not None and str(w_clicked).startswith(str(active._popup)):
+            pop = active._popup
+            if pop.winfo_exists():
+                px, py = pop.winfo_rootx(), pop.winfo_rooty()
+                pw, ph = pop.winfo_width(), pop.winfo_height()
+                if px <= event.x_root <= (px + pw) and py <= event.y_root <= (py + ph):
+                    return
+            tx, ty = active.winfo_rootx(), active.winfo_rooty()
+            tw, th = active.winfo_width(), active.winfo_height()
+            if tx <= event.x_root <= (tx + tw) and ty <= event.y_root <= (ty + th):
                 return
         except Exception:
             pass
         active._close_popup()
 
     def _on_hover_enter(self, _e):
-        self.configure(bg="#232332", highlightbackground="#2e2e3d")
-        self.lbl_text.configure(bg="#232332", fg="#ffffff")
-        self.lbl_arrow.configure(bg="#232332")
+        self.configure(bg="#252536", highlightbackground="#272732")
+        self.lbl_text.configure(bg="#252536", fg="#ffffff")
+        self.lbl_arrow.configure(bg="#252536")
 
     def _on_hover_leave(self, _e):
         if not self._popup:
@@ -376,9 +398,9 @@ class StudioDropdown(_TkFrameBase):
             self.lbl_arrow.configure(bg="#14141b")
 
     def set_items(self, items: List[Dict[str, str]]):
-        self._items = items
-        if not self._selected_value and items:
-            self.set_value(items[0]["value"], items[0]["label"])
+        self._items = list(items)
+        if not self._selected_value and self._items:
+            self.set_value(self._items[0]["value"], self._items[0]["label"])
 
     def set_value(self, value: str, display_label: Optional[str] = None):
         self._selected_value = value
@@ -386,7 +408,7 @@ class StudioDropdown(_TkFrameBase):
             found = next((it["label"] for it in self._items if it["value"] == value), value)
             display_label = found
         self._selected_label = display_label
-        max_chars = max(12, int((self.width_px - 34) // 6.5))
+        max_chars = max(12, int((self.width_px - 36) // 6.5))
         short = display_label if len(display_label) <= max_chars else display_label[: max_chars - 1] + "…"
         self.lbl_text.configure(text=short)
 
@@ -397,7 +419,7 @@ class StudioDropdown(_TkFrameBase):
         if self._popup and self._popup.winfo_exists():
             self._close_popup()
             return "break"
-        if (time.monotonic() - self._closed_at) < 0.15:
+        if (time.monotonic() - self._closed_at) < 0.16:
             return "break"
         self._open_popup()
         return "break"
@@ -416,7 +438,7 @@ class StudioDropdown(_TkFrameBase):
             if self.winfo_exists():
                 self.configure(bg="#14141b", highlightbackground="#272732")
                 self.lbl_text.configure(bg="#14141b", fg="#fafafa")
-                self.lbl_arrow.configure(bg="#14141b", text="▾")
+                self.lbl_arrow.configure(bg="#14141b", text="▼")
         except Exception:
             pass
 
@@ -425,11 +447,13 @@ class StudioDropdown(_TkFrameBase):
             StudioDropdown._active_dropdown._close_popup()
         StudioDropdown._active_dropdown = self
 
-        self.lbl_arrow.configure(text="▴", bg="#232332")
-        self.lbl_text.configure(bg="#232332", fg="#ffffff")
-        self.configure(bg="#232332", highlightbackground="#343446")
+        self.lbl_arrow.configure(text="▲", bg="#252536")
+        self.lbl_text.configure(bg="#252536", fg="#ffffff")
+        self.configure(bg="#252536", highlightbackground="#343446")
 
-        pop = tk.Toplevel(self.root)
+        # Parent the popup to the containing Toplevel so modal dialogs never block events
+        host_top = self.winfo_toplevel()
+        pop = tk.Toplevel(host_top)
         pop.wm_overrideredirect(True)
         pop.attributes("-topmost", True)
         pop.configure(bg="#30303b")
@@ -438,7 +462,7 @@ class StudioDropdown(_TkFrameBase):
         has_rich_rows = bool(self.categories) or any(it.get("badge") or it.get("meta") for it in self._items)
         row_h = 30 if has_rich_rows else 28
         if self.categories:
-            pop_w = max(self.width_px, 380)
+            pop_w = max(self.width_px, 418)
             pop_h = 330
         elif has_rich_rows:
             pop_w = max(self.width_px, 290)
@@ -484,7 +508,7 @@ class StudioDropdown(_TkFrameBase):
                 font=("Consolas", 9),
             )
             ent_search.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=3)
-            ent_search.focus_set()
+            ent_search.focus_force()
 
             cat_bar = tk.Frame(body, bg="#0a0a0f", padx=6, pady=5)
             cat_bar.pack(fill=tk.X)
@@ -498,6 +522,7 @@ class StudioDropdown(_TkFrameBase):
                     else:
                         lbl.configure(bg="#161620", fg="#a1a1aa")
                 render_rows()
+                return "break"
 
             for c_name in self.categories:
                 b = tk.Label(
@@ -511,7 +536,7 @@ class StudioDropdown(_TkFrameBase):
                     cursor="hand2",
                 )
                 b.pack(side=tk.LEFT, padx=2)
-                b.bind("<Button-1>", lambda _e, cn=c_name: select_cat(cn))
+                b.bind("<ButtonPress-1>", lambda _e, cn=c_name: select_cat(cn))
                 cat_btns[c_name] = b
 
         list_wrap = tk.Frame(body, bg="#101016")
@@ -569,7 +594,7 @@ class StudioDropdown(_TkFrameBase):
                 y1 = y0 + row_h
                 is_sel = it["value"] == self._selected_value
                 is_hov = idx == hover_row_idx[0]
-                bg_col = "#1e1e28" if (is_hov or is_sel) else "#101016"
+                bg_col = "#252536" if (is_hov or is_sel) else "#101016"
                 cv.create_rectangle(0, y0, w_cv, y1, fill=bg_col, outline="")
 
                 badge_txt = it.get("badge", "")
@@ -606,6 +631,7 @@ class StudioDropdown(_TkFrameBase):
                 row_regions.append((y0, y1, it["value"], it["label"]))
 
             cv.configure(scrollregion=(0, 0, w_cv, len(filtered) * row_h))
+            cv.yview_moveto(0)
 
         def on_cv_motion(event):
             cy = cv.canvasy(event.y)
@@ -622,14 +648,15 @@ class StudioDropdown(_TkFrameBase):
                     self._close_popup()
                     if self.on_select:
                         self.on_select(val)
-                    break
+                    return "break"
+            return "break"
 
         def on_mousewheel(event):
             cv.yview_scroll(int(-1 * (event.delta / 120)), "units")
             return "break"
 
         cv.bind("<Motion>", on_cv_motion)
-        cv.bind("<Button-1>", on_cv_click)
+        cv.bind("<ButtonPress-1>", on_cv_click)
         for wheel_widget in (pop, body, list_wrap, cv, vscroll):
             wheel_widget.bind("<MouseWheel>", on_mousewheel)
         if ent_search is not None:

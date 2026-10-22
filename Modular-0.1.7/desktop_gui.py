@@ -109,13 +109,18 @@ class OmniBondDesktopGUI:
         self._policy_popup_closed_key: str = ""
         self._policy_popup_closed_at: float = 0.0
         self._topbar_phase: float = 0.0
+        self._topbar_feedback_until: float = 0.0
+        self._repair_feedback_until: float = 0.0
+        self._rescan_feedback_until: float = 0.0
+        self._rescan_feedback_text: str = ""
         self._endpoint_text: str = ""
+        self._topbar_buttons: List[tk.Frame] = []
         self._spark_img_cache: Dict[Tuple, tk.PhotoImage] = {}
         self._active_spark_imgs: List[tk.PhotoImage] = []
         self._chart_img_ref: Optional[tk.PhotoImage] = None
 
         self._build_flush_layout()
-        self.root.bind_all("<Button-1>", self._on_global_root_click, add="+")
+        self.root.bind_all("<ButtonPress-1>", self._on_global_root_click, add="+")
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         self._schedule_refresh()
         self._animate_topbar_gradient()
@@ -293,7 +298,6 @@ class OmniBondDesktopGUI:
                 elif lvl > 0:
                     buf[idx : idx + 3] = aa_bg[lvl]
 
-        # Anti-aliased endpoint circle at (x_end - 1, ys[x_end - 1])
         cx = float(x_end - 1)
         cy = ys[x_end - 1]
         dot_r = 2.4
@@ -397,7 +401,7 @@ class OmniBondDesktopGUI:
         text: str,
         tooltip_title: str,
         tooltip_desc: str,
-        variant: str = "dark",  # dark | primary | amber | active
+        variant: str = "dark",  # dark | primary | amber | active | emerald_flow
         cmd: Optional[Callable] = None,
         px: int = 12,
         py: int = 6,
@@ -411,6 +415,7 @@ class OmniBondDesktopGUI:
             "primary": ("#fafafa", "#09090b", "#fafafa", "#f59e0b", "#f59e0b", "#09090b"),
             "amber": ("#f59e0b", "#09090b", "#f59e0b", "#fbbf24", "#fbbf24", "#09090b"),
             "active": ("#1c1912", "#f59e0b", "#3a301a", "#292315", "#3a301a", "#fbbf24"),
+            "emerald_flow": ("#0d4a34", "#ecfdf5", "#10b981", "#115e42", "#10b981", "#ffffff"),
         }
         bg, fg, bd_col, hov_bg, hov_bd, hov_fg = palette.get(variant, palette["dark"])
 
@@ -486,6 +491,7 @@ class OmniBondDesktopGUI:
             "primary": ("#fafafa", "#09090b", "#fafafa"),
             "amber": ("#f59e0b", "#09090b", "#f59e0b"),
             "active": ("#1c1912", "#f59e0b", "#3a301a"),
+            "emerald_flow": ("#0d4a34", "#ecfdf5", "#10b981"),
         }
         bg, fg, bd_col = palette.get(variant, palette["dark"])
         btn._studio_variant = variant  # type: ignore
@@ -514,7 +520,7 @@ class OmniBondDesktopGUI:
         self.root.grid_rowconfigure(2, weight=0)
 
         # -----------------------------------------------------------------
-        # CONTAINER 0: TOP BAR WITH FLOWING GREEN GRADIENT IN BONDING STATE
+        # CONTAINER 0: TOP BAR WITH FLOWING GREEN GRADIENT & ARTIFACT-FREE BUTTONS
         # -----------------------------------------------------------------
         self.topbar_canvas = tk.Canvas(
             self.root,
@@ -533,10 +539,9 @@ class OmniBondDesktopGUI:
             f"• Web Dashboard {ep_host}:{self.engine.web_port}"
         )
 
-        self.actions_right = tk.Frame(self.topbar_canvas, bg=self.BG_PANEL)
-
+        # Create each topbar button directly on topbar_canvas (no intermediate Frame background!)
         self.btn_proxy = self._make_studio_btn(
-            self.actions_right,
+            self.topbar_canvas,
             "◈ Bonding: Off",
             "SYSTEM-WIDE BONDING PROXY",
             "Route all Windows HTTP/HTTPS & SOCKS5 traffic across active adapters.",
@@ -545,10 +550,8 @@ class OmniBondDesktopGUI:
             px=13,
             py=5,
         )
-        self.btn_proxy.pack(side=tk.LEFT, padx=(0, 8))
-
-        self._make_studio_btn(
-            self.actions_right,
+        self.btn_tuning = self._make_studio_btn(
+            self.topbar_canvas,
             "⚙ Network Tuning",
             "NETWORK TUNING & ADAPTER LIMITS",
             "Configure Windows multi-network and IP route optimization plus per-adapter data and speed limits.",
@@ -556,10 +559,9 @@ class OmniBondDesktopGUI:
             cmd=self._show_network_tuning,
             px=12,
             py=5,
-        ).pack(side=tk.LEFT, padx=(0, 8))
-
-        self._make_studio_btn(
-            self.actions_right,
+        )
+        self.btn_repair_net = self._make_studio_btn(
+            self.topbar_canvas,
             "✚ Repair Network",
             "REPAIR NETWORK",
             "Reset Windows proxy to Direct, restore automatic interface metrics, and flush DNS.",
@@ -567,10 +569,9 @@ class OmniBondDesktopGUI:
             cmd=self._repair_network_gui,
             px=12,
             py=5,
-        ).pack(side=tk.LEFT, padx=(0, 8))
-
+        )
         self.btn_graph_mode = self._make_studio_btn(
-            self.actions_right,
+            self.topbar_canvas,
             "∿ Master Speed",
             "MASTER OR BONDED SPEED",
             "Showing live traffic on the computer network interfaces. Click to toggle OmniBond bonded traffic.",
@@ -579,10 +580,8 @@ class OmniBondDesktopGUI:
             px=12,
             py=5,
         )
-        self.btn_graph_mode.pack(side=tk.LEFT, padx=(0, 8))
-
         self.btn_hide_ips = self._make_studio_btn(
-            self.actions_right,
+            self.topbar_canvas,
             "👁 Show IPs",
             "HIDE OR SHOW IP ADDRESSES",
             "Mask or reveal all IPv4 addresses across adapter cards, application cards, and server endpoints.",
@@ -591,10 +590,8 @@ class OmniBondDesktopGUI:
             px=12,
             py=5,
         )
-        self.btn_hide_ips.pack(side=tk.LEFT, padx=(0, 8))
-
-        self._make_studio_btn(
-            self.actions_right,
+        self.btn_rescan_nics = self._make_studio_btn(
+            self.topbar_canvas,
             "⟳ Rescan Adapters",
             "RESCAN ADAPTERS",
             "Re-scan Windows network adapters and IPv4 addresses.",
@@ -602,7 +599,15 @@ class OmniBondDesktopGUI:
             cmd=self._rescan_nics,
             px=12,
             py=5,
-        ).pack(side=tk.LEFT)
+        )
+        self._topbar_buttons = [
+            self.btn_proxy,
+            self.btn_tuning,
+            self.btn_repair_net,
+            self.btn_graph_mode,
+            self.btn_hide_ips,
+            self.btn_rescan_nics,
+        ]
 
         # -----------------------------------------------------------------
         # CONTAINER 1: 01 / HARDWARE INTERFACES & CHART (Matches Web UI Section 01)
@@ -679,7 +684,7 @@ class OmniBondDesktopGUI:
             self.canvas_adapters,
             "NETWORK ADAPTER BENTO CARDS",
             "Click any network adapter card button to enable or disable it in the bonding pool.",
-            delay_ms=550,
+            delay_ms=420,
         )
 
         self.canvas_chart = tk.Canvas(
@@ -711,7 +716,7 @@ class OmniBondDesktopGUI:
         c02_titles.pack(side=tk.LEFT)
         tk.Label(
             c02_titles,
-            text="02 / APPLICATION ROUTER · GETEXTENDEDTCPTABLE PID ENGINE",
+            text="02 / APPLICATION ROUTER · LIVE PROCESS ROUTING",
             bg=self.BG_PANEL,
             fg=self.AMBER,
             font=("Consolas", 9, "bold"),
@@ -736,7 +741,6 @@ class OmniBondDesktopGUI:
         tk.Frame(c02, bg=self.BG_HAIRLINE, height=1).grid(row=1, column=0, sticky="ew")
 
         # Router Toolbar matching Web UI (.router-toolbar):
-        # Background matches self.BG_PANEL (#0c0c0f)
         # Left order: 1. Filter dropdown -> 2. Sorting dropdown -> 3. View options (▦ Grid / ☷ List)
         # Right order: ⌕ Scan, ＋ Add Program
         toolbar = tk.Frame(c02, bg=self.BG_PANEL, padx=18, pady=9)
@@ -948,13 +952,13 @@ class OmniBondDesktopGUI:
             self.canvas_dl_unified,
             "LIVE PROGRESS & MULTI-NIC BLOCK STRIP",
             "Top bar shows overall download progress; bottom row shows individual blocks color-coded by adapter.",
-            delay_ms=550,
+            delay_ms=420,
         )
 
         self._refresh_process_dropdown()
 
     # -----------------------------------------------------------------
-    # TOPBAR FLOWING GREEN GRADIENT IN BONDING STATE
+    # TOPBAR FLOWING GREEN GRADIENT & ACTION FEEDBACK ANIMATION
     # -----------------------------------------------------------------
 
     def _draw_topbar_canvas(self):
@@ -963,9 +967,10 @@ class OmniBondDesktopGUI:
         w = max(800, c.winfo_width())
         h = max(60, c.winfo_height())
 
-        bonding_on = bool(self.engine.sys_opt.system_proxy_enabled)
-        if bonding_on:
-            strips = 48
+        now = time.monotonic()
+        flow_active = bool(self.engine.sys_opt.system_proxy_enabled) or (now < self._topbar_feedback_until)
+        if flow_active:
+            strips = 56
             strip_w = w / strips
             for i in range(strips):
                 u = (i / strips) + self._topbar_phase
@@ -974,12 +979,29 @@ class OmniBondDesktopGUI:
                 x0 = int(i * strip_w)
                 x1 = int((i + 1) * strip_w) + 1
                 c.create_rectangle(x0, 0, x1, h, fill=col, outline="", tags="topbar_bg")
-            right_wave = 0.5 + 0.5 * math.sin((0.78 + self._topbar_phase) * 2.0 * math.pi)
-            right_bg = self._blend_hex("#0c0c0f", "#0e523a", right_wave * 0.85)
-            self.actions_right.configure(bg=right_bg)
         else:
             c.create_rectangle(0, 0, w, h, fill=self.BG_PANEL, outline="", tags="topbar_bg")
-            self.actions_right.configure(bg=self.BG_PANEL)
+
+        # Update Repair & Rescan buttons with flowing green state while their feedback window is active
+        if now < self._repair_feedback_until:
+            wave_btn = 0.5 + 0.5 * math.sin((self._topbar_phase * 2.0) * 2.0 * math.pi)
+            flow_col = self._blend_hex("#073626", "#10b981", wave_btn * 0.65)
+            self.btn_repair_net.configure(text="✓ Network Repaired", bg=flow_col, fg="#ffffff")
+            tk.Frame.configure(self.btn_repair_net, highlightbackground="#10b981")
+        elif getattr(self.btn_repair_net, "_in_feedback", False):
+            self.btn_repair_net._in_feedback = False  # type: ignore
+            self.btn_repair_net.configure(text="✚ Repair Network")
+            self._set_btn_variant(self.btn_repair_net, "dark")
+
+        if now < self._rescan_feedback_until:
+            wave_btn = 0.5 + 0.5 * math.sin((self._topbar_phase * 2.0 + 0.3) * 2.0 * math.pi)
+            flow_col = self._blend_hex("#073626", "#10b981", wave_btn * 0.65)
+            self.btn_rescan_nics.configure(text=self._rescan_feedback_text or "✓ Adapters Rescanned", bg=flow_col, fg="#ffffff")
+            tk.Frame.configure(self.btn_rescan_nics, highlightbackground="#10b981")
+        elif getattr(self.btn_rescan_nics, "_in_feedback", False):
+            self.btn_rescan_nics._in_feedback = False  # type: ignore
+            self.btn_rescan_nics.configure(text="⟳ Rescan Adapters")
+            self._set_btn_variant(self.btn_rescan_nics, "dark")
 
         # OB badge & Brand titles painted directly over the canvas gradient
         c.create_rectangle(20, 18, 46, 42, fill=self.AMBER, outline="", tags="topbar_bg")
@@ -1007,19 +1029,33 @@ class OmniBondDesktopGUI:
             tags="topbar_bg",
         )
 
-        if not c.find_withtag("topbar_actions_win"):
-            c.create_window(w - 20, h / 2, window=self.actions_right, anchor="e", tags="topbar_actions_win")
-        else:
-            c.coords("topbar_actions_win", w - 20, h / 2)
+        # Position each topbar button directly on topbar_canvas from right to left (zero frame artifacts)
+        cur_right = w - 20
+        for idx in range(len(self._topbar_buttons) - 1, -1, -1):
+            btn = self._topbar_buttons[idx]
+            btn.update_idletasks()
+            bw = max(90, btn.winfo_reqwidth())
+            tag_name = f"topbar_btn_{idx}"
+            if not c.find_withtag(tag_name):
+                c.create_window(cur_right, h / 2, window=btn, anchor="e", tags=tag_name)
+            else:
+                c.coords(tag_name, cur_right, h / 2)
+            cur_right -= (bw + 8)
 
     def _animate_topbar_gradient(self):
         try:
-            if self.engine.sys_opt.system_proxy_enabled:
-                self._topbar_phase = (self._topbar_phase + 0.022) % 1.0
+            now = time.monotonic()
+            if (
+                self.engine.sys_opt.system_proxy_enabled
+                or now < self._topbar_feedback_until
+                or getattr(self.btn_repair_net, "_in_feedback", False)
+                or getattr(self.btn_rescan_nics, "_in_feedback", False)
+            ):
+                self._topbar_phase = (self._topbar_phase + 0.025) % 1.0
                 self._draw_topbar_canvas()
         except Exception:
             pass
-        self.root.after(65, self._animate_topbar_gradient)
+        self.root.after(60, self._animate_topbar_gradient)
 
     # -----------------------------------------------------------------
     # DROPDOWN & ACTION HANDLERS
@@ -1032,6 +1068,11 @@ class OmniBondDesktopGUI:
         try:
             if w_clicked is not None and str(w_clicked).startswith(str(self._policy_popup)):
                 return
+            if self._policy_popup.winfo_exists():
+                px, py = self._policy_popup.winfo_rootx(), self._policy_popup.winfo_rooty()
+                pw, ph = self._policy_popup.winfo_width(), self._policy_popup.winfo_height()
+                if px <= event.x_root <= (px + pw) and py <= event.y_root <= (py + ph):
+                    return
         except Exception:
             pass
         if w_clicked is self.canvas_apps:
@@ -1162,12 +1203,13 @@ class OmniBondDesktopGUI:
 
     def _open_add_program_popup(self):
         self._close_card_policy_popup()
+        self._refresh_process_dropdown()
         popup = tk.Toplevel(self.root)
         popup.title("Add application to OmniBond")
         popup.configure(bg="#30303b")
         popup.resizable(False, False)
         popup.transient(self.root)
-        popup.grab_set()
+        popup.attributes("-topmost", True)
         popup.geometry(f"460x370+{self.root.winfo_rootx() + 240}+{self.root.winfo_rooty() + 180}")
 
         def close_popup():
@@ -1264,12 +1306,12 @@ class OmniBondDesktopGUI:
         actions.pack(fill=tk.X, side=tk.BOTTOM)
         self._make_studio_btn(
             actions,
-            "Add & apply policy",
-            "ADD APPLICATION AND APPLY POLICY",
-            "Save the selected application with the chosen adapter policy.",
+            "Add Program",
+            "ADD PROGRAM",
+            "Add the selected application with the chosen network policy.",
             variant="amber",
             cmd=lambda: self._assign_app_rule_and_close(popup),
-            px=12,
+            px=14,
             py=6,
         ).pack(side=tk.RIGHT, padx=(8, 0))
         self._make_studio_btn(
@@ -1457,7 +1499,7 @@ class OmniBondDesktopGUI:
             for w_item in (row_frame, lbl):
                 w_item.bind("<Enter>", on_enter)
                 w_item.bind("<Leave>", on_leave)
-                w_item.bind("<Button-1>", on_pick)
+                w_item.bind("<ButtonPress-1>", on_pick)
 
         pop.bind("<Escape>", lambda _e: self._close_card_policy_popup())
 
@@ -1495,6 +1537,12 @@ class OmniBondDesktopGUI:
 
     def _rescan_nics(self):
         self.engine.adapter_mgr.refresh_adapters()
+        cnt = len(self.engine.adapter_mgr.get_adapters())
+        now = time.monotonic()
+        self._rescan_feedback_text = f"✓ {cnt} Adapters Ready"
+        self._rescan_feedback_until = now + 2.2
+        self._topbar_feedback_until = max(self._topbar_feedback_until, now + 2.2)
+        self.btn_rescan_nics._in_feedback = True  # type: ignore
         self._update_ui()
 
     def _on_chart_hover(self, event):
@@ -1583,28 +1631,28 @@ class OmniBondDesktopGUI:
                 if rtype == "focus":
                     self.tooltip.schedule(
                         f"FOCUS ({app_key.upper()})\nBring the program window forward.",
-                        delay_ms=260,
+                        delay_ms=380,
                         x_root=event.x_root,
                         y_root=event.y_root,
                     )
                 elif rtype == "favorite":
                     self.tooltip.schedule(
                         f"FAVORITE ({app_key.upper()})\nAdd or remove this program from Favorites.",
-                        delay_ms=260,
+                        delay_ms=380,
                         x_root=event.x_root,
                         y_root=event.y_root,
                     )
                 elif rtype == "location":
                     self.tooltip.schedule(
                         f"LOCATION ({app_key.upper()})\nOpen this program's file or installation location.",
-                        delay_ms=260,
+                        delay_ms=380,
                         x_root=event.x_root,
                         y_root=event.y_root,
                     )
                 elif rtype == "policy":
                     self.tooltip.schedule(
                         f"ROUTING POLICY ({app_key.upper()})\nSelect and apply a routing policy for this application.",
-                        delay_ms=300,
+                        delay_ms=380,
                         x_root=event.x_root,
                         y_root=event.y_root,
                     )
@@ -1642,7 +1690,6 @@ class OmniBondDesktopGUI:
                     self._update_ui()
                     return
                 if rtype == "policy":
-                    # If this card's policy menu is currently open (or was just closed by the same click), toggle it closed
                     if (
                         (self._policy_popup is not None and self._policy_popup_app_key == app_key)
                         or (
@@ -1665,9 +1712,12 @@ class OmniBondDesktopGUI:
         self._update_ui()
 
     def _repair_network_gui(self):
-        ok, msg = self.engine.sys_opt.repair_network()
+        self.engine.sys_opt.repair_network()
+        now = time.monotonic()
+        self._repair_feedback_until = now + 2.4
+        self._topbar_feedback_until = max(self._topbar_feedback_until, now + 2.4)
+        self.btn_repair_net._in_feedback = True  # type: ignore
         self._update_ui()
-        messagebox.showinfo("Network Repaired", msg)
 
     def _show_network_tuning(self):
         self._close_card_policy_popup()
@@ -1677,7 +1727,7 @@ class OmniBondDesktopGUI:
         window.geometry("680x680")
         window.minsize(560, 520)
         window.transient(self.root)
-        window.grab_set()
+        window.attributes("-topmost", True)
 
         tk.Frame(window, bg=self.AMBER, height=2).pack(fill=tk.X, side=tk.TOP)
         panel = tk.Frame(window, bg="#0c0c12", padx=20, pady=18)
@@ -2336,7 +2386,7 @@ class OmniBondDesktopGUI:
         c.configure(scrollregion=(0, 0, content_w, h))
 
     # -----------------------------------------------------------------
-    # 02: APPLICATION BENTO CARDS (Matches Web UI #appBentoGrid .bento-card)
+    # 02: APPLICATION BENTO CARDS (Lighter, Airier Layout with Full Details)
     # -----------------------------------------------------------------
 
     def _draw_app_bento_cards(self, entries: List[Dict], adapters: List[NetworkAdapter]):
@@ -2347,11 +2397,12 @@ class OmniBondDesktopGUI:
         self._active_spark_imgs.clear()
 
         w = max(480, c.winfo_width())
-        cols = 1 if self.app_view_mode == "list" else max(1, int(w // 245))
+        # Wider minimum card column (280px) so cards feel airy and uncluttered
+        cols = 1 if self.app_view_mode == "list" else max(1, int(w // 280))
         items = entries
         rows = max(1, math.ceil(max(1, len(items)) / cols))
         cell_w = w / cols
-        cell_h = 212
+        cell_h = 224
         content_h = max(c.winfo_height(), rows * cell_h)
 
         ip_to_name = {a.ip: a.name for a in adapters}
@@ -2374,25 +2425,25 @@ class OmniBondDesktopGUI:
             c.create_line(x0, y1 - 1, x1, y1 - 1, fill=self.BG_HAIRLINE)
 
             accent_col, _fill_dark = self._get_app_accent(idx)
-            pad_x = x0 + 16
-            right_x = x1 - 16
+            pad_x = x0 + 18
+            right_x = x1 - 18
 
-            # 1. Card Top Row: Number badge on left + [★] [▣ FOCUS] [↗ LOCATION] on right
-            c.create_rectangle(pad_x, y0 + 15, pad_x + 25, y0 + 32, fill=accent_col, outline="")
+            # 1. Card Top Row: Number badge on left + lighter [★] [▣ FOCUS] [↗ LOCATION] pills on right
+            c.create_rectangle(pad_x, y0 + 16, pad_x + 25, y0 + 33, fill=accent_col, outline="")
             c.create_text(
-                pad_x + 12.5, y0 + 23.5,
+                pad_x + 12.5, y0 + 24.5,
                 text=f"{idx + 1:02d}",
                 fill="#09090b",
                 font=("Consolas", 8, "bold"),
             )
 
             loc_x1 = right_x
-            loc_x0 = loc_x1 - 72
+            loc_x0 = loc_x1 - 66
             foc_x1 = loc_x0 - 5
-            foc_x0 = foc_x1 - 72
+            foc_x0 = foc_x1 - 62
             fav_x1 = foc_x0 - 5
-            fav_x0 = fav_x1 - 28
-            ctl_y0, ctl_y1 = y0 + 11, y0 + 37
+            fav_x0 = fav_x1 - 26
+            ctl_y0, ctl_y1 = y0 + 13, y0 + 37
 
             favorite = bool(r.get("is_favorite"))
             fav_hov = self._hovered_app_region_id == f"favorite:{app_key}"
@@ -2400,45 +2451,45 @@ class OmniBondDesktopGUI:
             loc_hov = self._hovered_app_region_id == f"location:{app_key}"
             pol_hov = self._hovered_app_region_id == f"policy:{app_key}"
 
-            fav_bg = "#2b2416" if (favorite and fav_hov) else ("#1f1b12" if favorite else ("#252536" if fav_hov else "#121218"))
+            fav_bg = "#2b2416" if (favorite and fav_hov) else ("#1a1710" if favorite else ("#242434" if fav_hov else "#101016"))
             c.create_rectangle(
                 fav_x0, ctl_y0, fav_x1, ctl_y1,
                 fill=fav_bg,
-                outline="#30303b",
+                outline="#22222c",
                 width=1,
             )
             c.create_text(
                 (fav_x0 + fav_x1) / 2, (ctl_y0 + ctl_y1) / 2,
                 text="★" if favorite else "☆",
-                fill="#fbbf24" if (favorite and fav_hov) else (self.AMBER if favorite else ("#ffffff" if fav_hov else self.TEXT_MAIN)),
-                font=("Segoe UI Symbol", 10, "bold"),
+                fill="#fbbf24" if (favorite and fav_hov) else (self.AMBER if favorite else ("#ffffff" if fav_hov else "#d4d4d8")),
+                font=("Segoe UI Symbol", 9, "bold"),
             )
             self._app_card_regions.append((fav_x0, ctl_y0, fav_x1, ctl_y1, "favorite", app_key, r["last_pid"], accent_col))
 
             c.create_rectangle(
                 foc_x0, ctl_y0, foc_x1, ctl_y1,
-                fill="#252536" if foc_hov else "#121218",
-                outline="#30303b",
+                fill="#242434" if foc_hov else "#101016",
+                outline="#22222c",
                 width=1,
             )
             c.create_text(
                 (foc_x0 + foc_x1) / 2, (ctl_y0 + ctl_y1) / 2,
                 text="▣ FOCUS",
-                fill="#ffffff" if foc_hov else self.TEXT_MAIN,
+                fill="#ffffff" if foc_hov else "#d4d4d8",
                 font=("Consolas", 8, "bold"),
             )
             self._app_card_regions.append((foc_x0, ctl_y0, foc_x1, ctl_y1, "focus", app_key, r["last_pid"], accent_col))
 
             c.create_rectangle(
                 loc_x0, ctl_y0, loc_x1, ctl_y1,
-                fill="#252536" if loc_hov else "#121218",
-                outline="#30303b",
+                fill="#242434" if loc_hov else "#101016",
+                outline="#22222c",
                 width=1,
             )
             c.create_text(
                 (loc_x0 + loc_x1) / 2, (ctl_y0 + ctl_y1) / 2,
                 text="↗ LOCATION",
-                fill="#ffffff" if loc_hov else self.TEXT_MAIN,
+                fill="#ffffff" if loc_hov else "#d4d4d8",
                 font=("Consolas", 8, "bold"),
             )
             self._app_card_regions.append((loc_x0, ctl_y0, loc_x1, ctl_y1, "location", app_key, r["last_pid"], accent_col))
@@ -2458,15 +2509,15 @@ class OmniBondDesktopGUI:
             else:
                 sub_desc = "Pinned Rule"
 
-            subtle_icon_bd = self._blend_hex("#14141d", accent_col, 0.40)
+            subtle_icon_bd = self._blend_hex("#14141d", accent_col, 0.36)
             self._draw_rounded_rect(
-                c, pad_x, y0 + 48, pad_x + 34, y0 + 82,
+                c, pad_x, y0 + 50, pad_x + 34, y0 + 84,
                 radius=6.0,
                 fill="#14141d",
                 outline=subtle_icon_bd,
             )
             c.create_text(
-                pad_x + 17, y0 + 65,
+                pad_x + 17, y0 + 67,
                 text=main_title[:2].upper(),
                 fill=accent_col,
                 font=("Segoe UI", 9, "bold"),
@@ -2474,12 +2525,12 @@ class OmniBondDesktopGUI:
 
             title_x = pad_x + 44
             avail_px = max(80, right_x - title_x)
-            ext_txt = sub_ext if len(sub_ext) <= 15 else sub_ext[:14] + "…"
+            ext_txt = sub_ext if len(sub_ext) <= 16 else sub_ext[:15] + "…"
             badge_px = (len(ext_txt) * 6 + 12) if ext_txt else 0
-            max_p1_chars = max(8, int((avail_px - badge_px - 6) // 7.2))
+            max_p1_chars = max(9, int((avail_px - badge_px - 6) // 7.2))
             short_p1 = main_title if len(main_title) <= max_p1_chars else main_title[: max_p1_chars - 1] + "…"
             t_id = c.create_text(
-                title_x, y0 + 56,
+                title_x, y0 + 58,
                 text=short_p1,
                 fill=self.TEXT_MAIN,
                 anchor="w",
@@ -2488,43 +2539,43 @@ class OmniBondDesktopGUI:
             bbox = c.bbox(t_id)
             next_x = (bbox[2] + 6) if bbox else (title_x + len(short_p1) * 7 + 6)
             if ext_txt and next_x + badge_px <= right_x:
-                subtle_ext_bd = self._blend_hex("#14141d", accent_col, 0.34)
+                subtle_ext_bd = self._blend_hex("#14141d", accent_col, 0.30)
                 self._draw_rounded_rect(
-                    c, next_x, y0 + 48, next_x + badge_px, y0 + 64,
+                    c, next_x, y0 + 50, next_x + badge_px, y0 + 66,
                     radius=3.0,
                     fill="#14141d",
                     outline=subtle_ext_bd,
                 )
                 c.create_text(
-                    next_x + badge_px / 2, y0 + 56,
+                    next_x + badge_px / 2, y0 + 58,
                     text=ext_txt,
                     fill=accent_col,
                     font=("Consolas", 8, "bold"),
                 )
 
-            max_sub_chars = max(14, int(avail_px // 6.2))
+            max_sub_chars = max(16, int(avail_px // 6.2))
             short_sub = sub_desc if len(sub_desc) <= max_sub_chars else sub_desc[: max_sub_chars - 1] + "…"
             c.create_text(
-                title_x, y0 + 74,
+                title_x, y0 + 76,
                 text=short_sub,
                 fill=self.TEXT_MUTED,
                 anchor="w",
                 font=("Segoe UI", 8),
             )
 
-            # 3. Sparkline Box (.sparkline-box: APP SPEED on left, speed on right, anti-aliased PPM curve below)
-            spk_x0, spk_y0 = pad_x, y0 + 93
-            spk_x1, spk_y1 = right_x, y0 + 139
-            c.create_rectangle(spk_x0, spk_y0, spk_x1, spk_y1, fill="#07070a", outline="#181820", width=1)
+            # 3. Sparkline Box (Lighter, cleaner border #15151e & smooth anti-aliased PPM curve)
+            spk_x0, spk_y0 = pad_x, y0 + 96
+            spk_x1, spk_y1 = right_x, y0 + 144
+            c.create_rectangle(spk_x0, spk_y0, spk_x1, spk_y1, fill="#08080c", outline="#15151e", width=1)
             c.create_text(
-                spk_x0 + 7, spk_y0 + 10,
+                spk_x0 + 8, spk_y0 + 10,
                 text="APP SPEED",
                 fill=self.TEXT_MUTED,
                 anchor="w",
                 font=("Consolas", 8),
             )
             c.create_text(
-                spk_x1 - 7, spk_y0 + 10,
+                spk_x1 - 8, spk_y0 + 10,
                 text=self._fmt_speed(r.get("bps", 0.0)),
                 fill=accent_col,
                 anchor="e",
@@ -2534,7 +2585,7 @@ class OmniBondDesktopGUI:
             hist = r.get("bps_history", [])
             if len(hist) >= 2:
                 img_w = max(40, int((spk_x1 - spk_x0) - 6))
-                img_h = max(16, int((spk_y1 - spk_y0) - 20))
+                img_h = max(16, int((spk_y1 - spk_y0) - 21))
                 max_app_bps = max(4096.0, max(hist) * 1.18)
                 cache_key = (img_w, img_h, accent_col, tuple(int(v) for v in hist))
                 spark_img = self._spark_img_cache.get(cache_key)
@@ -2543,32 +2594,32 @@ class OmniBondDesktopGUI:
                         hist, img_w, min_y=2.5, max_y=float(img_h - 3), max_val=max_app_bps
                     )
                     ppm_data = self._render_sparkline_ppm(
-                        img_w, img_h, ys_cols, (7, 7, 10), self._hex_to_rgb(accent_col)
+                        img_w, img_h, ys_cols, (8, 8, 12), self._hex_to_rgb(accent_col)
                     )
                     spark_img = tk.PhotoImage(data=ppm_data)
                     if len(self._spark_img_cache) > 180:
                         self._spark_img_cache.clear()
                     self._spark_img_cache[cache_key] = spark_img
                 self._active_spark_imgs.append(spark_img)
-                c.create_image(spk_x0 + 3, spk_y0 + 18, image=spark_img, anchor="nw")
+                c.create_image(spk_x0 + 3, spk_y0 + 19, image=spark_img, anchor="nw")
 
             # 4. Telemetry Summary Line matching Web UI:
             c.create_text(
-                pad_x, y0 + 153,
+                pad_x, y0 + 160,
                 text=(
                     f"IP: {self._mask_ip(r['last_adapter_ip'])} · "
                     f"Conns: {r['active_connections']} ({r['total_connections']}) · "
                     f"{self._fmt_bytes(r['bytes_transferred'])}"
                 ),
-                fill=self.TEXT_DIM,
+                fill="#71717a",
                 anchor="w",
                 font=("Segoe UI", 8),
             )
 
-            # 5. Bottom Policy Selector: Neutral border (#22222c) + hover color shift (#191926), inside text colored
-            btn_y0, btn_y1 = y1 - 43, y1 - 12
+            # 5. Bottom Policy Selector: Neutral border (#1e1e28) + hover color shift (#191926), larger ▼ chevron
+            btn_y0, btn_y1 = y1 - 46, y1 - 14
             pol_bg = "#191926" if pol_hov else "#09090d"
-            c.create_rectangle(pad_x, btn_y0, right_x, btn_y1, fill=pol_bg, outline="#22222c", width=1)
+            c.create_rectangle(pad_x, btn_y0, right_x, btn_y1, fill=pol_bg, outline="#1e1e28", width=1)
             selected_policy = r["rule"]
             if selected_policy == "AUTO":
                 selected_name = "AUTO / BONDED"
@@ -2578,10 +2629,10 @@ class OmniBondDesktopGUI:
                 nic_name = ip_to_name.get(selected_policy, selected_policy)
                 selected_name = f"{nic_name} ({self._mask_ip(selected_policy)})".upper()
 
-            max_pol_chars = max(14, int((right_x - pad_x - 28) // 6.5))
+            max_pol_chars = max(14, int((right_x - pad_x - 30) // 6.5))
             short_pol = selected_name if len(selected_name) <= max_pol_chars else selected_name[: max_pol_chars - 1] + "…"
             c.create_text(
-                pad_x + 10,
+                pad_x + 11,
                 (btn_y0 + btn_y1) / 2,
                 text=short_pol,
                 fill=accent_col,
@@ -2589,12 +2640,12 @@ class OmniBondDesktopGUI:
                 font=("Segoe UI", 8, "bold"),
             )
             c.create_text(
-                right_x - 9,
+                right_x - 10,
                 (btn_y0 + btn_y1) / 2,
-                text="▾",
+                text="▼",
                 fill=accent_col,
                 anchor="e",
-                font=("Consolas", 9, "bold"),
+                font=("Segoe UI Symbol", 8, "bold"),
             )
             self._app_card_regions.append((pad_x, btn_y0, right_x, btn_y1, "policy", app_key, r["last_pid"], accent_col))
 
@@ -2610,14 +2661,12 @@ class OmniBondDesktopGUI:
         w = max(360, c.winfo_width())
         h = max(200, c.winfo_height())
 
-        # Left-align Y-axis labels at x=18 (strictly flush with section headers & legend pills)
         pad_l, pad_r, pad_b = 86, 18, 24
 
         total_bps = sum(self._adapter_speed(a, self.graph_mode) for a in adapters)
         if total_bps > self._peak_bps:
             self._peak_bps = total_bps
 
-        # Row 1: Source label on left + Two separate speed chips (LIVE & PEAK) on right
         c.create_text(
             18, 19,
             text=(
@@ -2688,7 +2737,6 @@ class OmniBondDesktopGUI:
             if history:
                 max_bps = max(max_bps, max(history) * 1.18)
 
-        # Render anti-aliased multi-series plot area via PPM PhotoImage
         series_list: List[Tuple[List[float], Tuple[int, int, int]]] = []
         for a in adapters:
             hist = self._adapter_speed_history(a, self.graph_mode)
@@ -2703,7 +2751,6 @@ class OmniBondDesktopGUI:
         self._chart_img_ref = tk.PhotoImage(data=ppm_plot)
         c.create_image(pad_l, pad_t, image=self._chart_img_ref, anchor="nw")
 
-        # Y-axis speed labels left-aligned at x=18 (flush with section title & legend)
         rows = 4
         for r in range(rows + 1):
             y = pad_t + (plot_h / rows) * r
@@ -2731,7 +2778,7 @@ class OmniBondDesktopGUI:
         baseline_y = pad_t + plot_h
         if self._hover_chart_x is not None and pad_l <= self._hover_chart_x <= (pad_l + plot_w) and adapters:
             hx = self._hover_chart_x
-            c.create_line(hx, pad_t, hx, baseline_y, fill="#52525b", dash=(2, 2))
+            c.create_line(hx, pad_t, hx, baseline_y, fill="#3f3f46", dash=(2, 2))
             hist_len = len(self._adapter_speed_history(adapters[0], self.graph_mode))
             rel = (hx - pad_l) / max(1.0, plot_w)
             sample_idx = min(hist_len - 1, max(0, int(round(rel * (hist_len - 1)))))
@@ -2742,14 +2789,16 @@ class OmniBondDesktopGUI:
                 val = history[sample_idx] if sample_idx < len(history) else 0.0
                 px = pad_l + (sample_idx / max(1, hist_len - 1)) * plot_w
                 py = baseline_y - min(1.0, max(0.0, val / max_bps)) * plot_h
-                c.create_oval(px - 4, py - 4, px + 4, py + 4, fill=a.color, outline="#09090b", width=1.5)
+                # Hover circle without outline, using a slightly lighter shade of the adapter color
+                lighter_dot = self._blend_hex(a.color, "#ffffff", 0.28)
+                c.create_oval(px - 4, py - 4, px + 4, py + 4, fill=lighter_dot, outline="")
                 lines.append((f"{idx + 1:02d} {a.name[:12]}: {self._fmt_speed(val)}", a.color))
 
             box_w = 180
             box_h = 16 + len(lines) * 16
             bx0 = hx + 12 if hx + 12 + box_w < w - pad_r else hx - box_w - 12
             by0 = pad_t + 6
-            c.create_rectangle(bx0, by0, bx0 + box_w, by0 + box_h, fill="#121218", outline="#3f3f46", width=1)
+            c.create_rectangle(bx0, by0, bx0 + box_w, by0 + box_h, fill="#121218", outline="#30303b", width=1)
             for l_idx, (txt, col) in enumerate(lines):
                 c.create_text(
                     bx0 + 10, by0 + 13 + l_idx * 16,
@@ -2771,13 +2820,11 @@ class OmniBondDesktopGUI:
         pct = min(100.0, max(0.0, self.engine.turbo.progress_pct))
         spd = self._fmt_speed(self.engine.turbo.speed_bps)
 
-        # 1. 8px Progress Track at top (y=0..8) matching Web UI .progress-track
         c.create_rectangle(0, 0, w, 8, fill="#12121a", outline="")
         fill_w = int((pct / 100.0) * w)
         if fill_w > 0:
             c.create_rectangle(0, 0, fill_w, 8, fill=self.EMERALD if pct >= 100 else self.AMBER, outline="")
 
-        # 2. Meta Row below progress track (y=21) matching Web UI .dl-meta-row
         c.create_text(
             0, 21,
             text=self.engine.turbo.status_text,
@@ -2793,7 +2840,6 @@ class OmniBondDesktopGUI:
             font=("Consolas", 9, "bold"),
         )
 
-        # 3. Block Strip below meta row (y=34..44) matching Web UI .block-strip (.blk 12x10, gap 3px)
         blocks = self.engine.turbo.blocks[:160]
         bx = 0
         by = 34

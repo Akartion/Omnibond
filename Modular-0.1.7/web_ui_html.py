@@ -94,6 +94,13 @@ WEB_UI_HTML = """<!DOCTYPE html>
   .btn.amber:hover { background-color: #fbbf24; color: #09090b; border-color: #fbbf24; }
   .btn.active { background-color: #1c1912; color: var(--amber); border-color: #3a301a; }
   .btn.active:hover { background-color: #292315; color: #fbbf24; border-color: #3a301a; }
+  .btn.emerald-flow {
+    background: linear-gradient(110deg, #073626 0%, #10b981 50%, #073626 100%);
+    background-size: 220% 220%;
+    animation: topbarGreenFlow 2s ease infinite;
+    color: #ffffff;
+    border-color: #10b981;
+  }
 
   .workspace-grid {
     display: grid;
@@ -134,7 +141,7 @@ WEB_UI_HTML = """<!DOCTYPE html>
      and unoccupied grid cells never show a lighter hairline hue. */
   .bento-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(235px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(275px, 1fr));
     gap: 0;
     background: var(--panel);
     border-bottom: 1px solid var(--hairline);
@@ -191,11 +198,11 @@ WEB_UI_HTML = """<!DOCTYPE html>
     background: var(--panel);
     border-right: 1px solid var(--hairline);
     border-bottom: 1px solid var(--hairline);
-    padding: 16px 16px;
+    padding: 18px 18px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    min-height: 208px;
+    min-height: 224px;
     min-width: 0;
     overflow: hidden;
     transition: background 0.15s;
@@ -227,7 +234,7 @@ WEB_UI_HTML = """<!DOCTYPE html>
     flex: 0 0 auto;
     align-items: center;
     justify-content: center;
-    height: 26px;
+    height: 24px;
     padding: 0 6px;
     white-space: nowrap;
     font-family: 'Consolas', monospace;
@@ -235,32 +242,32 @@ WEB_UI_HTML = """<!DOCTYPE html>
     font-weight: 800;
     line-height: 1;
     cursor: pointer;
+    transition: background-color 0.14s ease, color 0.14s ease;
   }
   .favorite-btn {
-    width: 28px;
+    width: 26px;
     padding: 0;
-    font-size: 13px;
+    font-size: 12px;
   }
   .focus-link, .app-card-controls .card-btn {
-    width: 72px;
-    color: var(--text);
-    background: #121218;
-    border: 1px solid #30303b;
+    width: 64px;
+    color: #d4d4d8;
+    background: #101016;
+    border: 1px solid #22222c;
     text-transform: uppercase;
   }
   .focus-link:hover, .app-card-controls .card-btn:hover, .favorite-btn:hover {
-    background-color: #252536;
+    background-color: #242434;
     color: #ffffff;
-    border-color: #30303b;
+    border-color: #22222c;
   }
   .favorite-btn {
-    color: var(--text);
-    background: #121218;
-    border: 1px solid #30303b;
-    transition: background-color 0.14s ease, color 0.14s ease;
+    color: #d4d4d8;
+    background: #101016;
+    border: 1px solid #22222c;
   }
-  .favorite-btn.active { background-color: #1f1b12; color: var(--amber); border-color: #30303b; }
-  .favorite-btn.active:hover { background-color: #2b2416; color: #fbbf24; border-color: #30303b; }
+  .favorite-btn.active { background-color: #1a1710; color: var(--amber); border-color: #22222c; }
+  .favorite-btn.active:hover { background-color: #2b2416; color: #fbbf24; border-color: #22222c; }
 
   /* Issue 5: Safe space & clean truncation for application names inside card containers */
   .card-identity {
@@ -352,10 +359,10 @@ WEB_UI_HTML = """<!DOCTYPE html>
   }
 
   .sparkline-box {
-    background: #07070a;
-    border: 1px solid #181820;
-    padding: 6px 8px;
-    margin-bottom: 11px;
+    background: #08080c;
+    border: 1px solid #15151e;
+    padding: 7px 9px;
+    margin-bottom: 13px;
   }
   .sparkline-head {
     display: flex;
@@ -410,10 +417,10 @@ WEB_UI_HTML = """<!DOCTYPE html>
   .styled-select-wrap.card-select-wrap .styled-select-trigger {
     height:auto;
     min-height:32px;
-    padding:6px 10px;
+    padding:7px 11px;
     color:var(--app-accent, var(--text));
     background-color:#09090d;
-    border:1px solid #22222c;
+    border:1px solid #1e1e28;
     font-size:10.5px;
     font-weight:800;
     text-transform:uppercase;
@@ -421,7 +428,7 @@ WEB_UI_HTML = """<!DOCTYPE html>
   .styled-select-wrap.card-select-wrap .styled-select-trigger:hover,
   .styled-select-wrap.card-select-wrap.open .styled-select-trigger {
     background-color:#191926;
-    border-color:#22222c;
+    border-color:#1e1e28;
     box-shadow:none;
   }
   .styled-select-wrap.filter-select-wrap { flex:0 0 156px; height:31px; }
@@ -433,11 +440,55 @@ WEB_UI_HTML = """<!DOCTYPE html>
     text-overflow:ellipsis;
     white-space:nowrap;
   }
-  .styled-select-chevron { flex:0 0 auto; color:var(--amber); font-size:9px; line-height:1; pointer-events:none; }
+  .styled-select-chevron { flex:0 0 auto; color:var(--amber); font-size:10.5px; line-height:1; pointer-events:none; }
   .styled-select-wrap.card-select-wrap .styled-select-chevron {
     display:inline-block;
     color:var(--app-accent, var(--amber));
-    font-size:10px;
+    font-size:10.5px;
+  }
+  .styled-select-filter-head {
+    position:sticky;
+    top:0;
+    z-index:2;
+    background:#101016;
+    padding-bottom:5px;
+    margin-bottom:4px;
+    border-bottom:1px solid #1e1e28;
+  }
+  .styled-select-search-row {
+    display:flex;
+    align-items:center;
+    gap:6px;
+    background:#12121a;
+    padding:5px 7px;
+  }
+  .styled-select-search-row input {
+    flex:1;
+    background:#08080c;
+    color:var(--text);
+    border:1px solid #272732;
+    padding:4px 7px;
+    font:11px Consolas,monospace;
+    outline:none;
+  }
+  .styled-select-cat-bar {
+    display:flex;
+    flex-wrap:wrap;
+    gap:4px;
+    background:#0a0a0f;
+    padding:5px 4px 2px;
+  }
+  .styled-select-cat-btn {
+    border:0;
+    padding:3px 7px;
+    background:#161620;
+    color:#a1a1aa;
+    font:700 9.5px Consolas,monospace;
+    cursor:pointer;
+  }
+  .styled-select-cat-btn.active {
+    background:var(--amber);
+    color:#09090b;
   }
   .styled-native-select {
     position:absolute!important;
@@ -748,17 +799,17 @@ WEB_UI_HTML = """<!DOCTYPE html>
       <div>
         <div class="brand-title">OmniBond</div>
         <div class="brand-sub" id="serverEndpoints">
-          &bull; HTTP/HTTPS 127.0.0.1:8080 &nbsp;&bull; SOCKS5 127.0.0.1:1080 &nbsp;&bull; Web Dashboard 127.0.0.1:8085
+          &bull; HTTP/HTTPS •••.•••.•••.•••:8080 &nbsp;&bull; SOCKS5 •••.•••.•••.•••:1080 &nbsp;&bull; Web Dashboard •••.•••.•••.•••:8085
         </div>
       </div>
     </div>
     <div class="top-actions">
       <button class="btn primary" id="btnSysProxy" title="Route all Windows HTTP/HTTPS & SOCKS5 traffic across active adapters" onclick="toggleSystemProxy()">◈ Bonding: Off</button>
       <button class="btn" title="Configure Windows multi-network and IP route optimization" onclick="openNetworkTuning()">⚙ Network Tuning</button>
-      <button class="btn" title="Reset Windows proxy to Direct, restore automatic interface metrics, and flush DNS" onclick="repairNetwork()">✚ Repair Network</button>
+      <button class="btn" id="btnRepairNet" title="Reset Windows proxy to Direct, restore automatic interface metrics, and flush DNS" onclick="repairNetwork()">✚ Repair Network</button>
       <button class="btn" id="btnGraphMode" aria-live="polite" aria-pressed="false" onclick="toggleGraphMode()">∿ Master Speed</button>
-      <button class="btn" id="btnHideIps" aria-live="polite" aria-pressed="false" title="Hide or show all IP addresses across the dashboard" onclick="toggleHideIps()">👁 Hide IPs</button>
-      <button class="btn" title="Re-scan Windows network adapters and IPv4 addresses" onclick="refreshAdapters()">⟳ Rescan Adapters</button>
+      <button class="btn active" id="btnHideIps" aria-live="polite" aria-pressed="true" title="Hide or show all IP addresses across the dashboard" onclick="toggleHideIps()">👁 Show IPs</button>
+      <button class="btn" id="btnRescanNics" title="Re-scan Windows network adapters and IPv4 addresses" onclick="refreshAdapters()">⟳ Rescan Adapters</button>
     </div>
   </div>
 
@@ -794,7 +845,7 @@ WEB_UI_HTML = """<!DOCTYPE html>
     <div class="section-container">
       <div class="section-head">
         <div>
-          <div class="kicker">02 / APPLICATION ROUTER &middot; GETEXTENDEDTCPTABLE PID ENGINE</div>
+          <div class="kicker">02 / APPLICATION ROUTER &middot; LIVE PROCESS ROUTING</div>
           <div class="section-title">Per-Application Network Pinning</div>
         </div>
         <div class="card-meta-links" id="pinnedCountMeta">RUNNING APPS</div>
@@ -852,7 +903,7 @@ WEB_UI_HTML = """<!DOCTYPE html>
       </div>
       <div class="modal-actions">
         <button class="btn" onclick="closeAddProgram()">Cancel</button>
-        <button class="btn amber" onclick="submitAddProgram()">Add &amp; apply policy</button>
+        <button class="btn amber" onclick="submitAddProgram()">Add Program</button>
       </div>
     </div>
   </div>
@@ -929,10 +980,12 @@ let allProcesses = [];
 let currentFilter = 'ALL';
 let currentAppView = localStorage.getItem('omnibond-app-view') || 'grid';
 let currentAppSort = localStorage.getItem('omnibond-app-sort') || 'AZ';
-let hideIps = localStorage.getItem('omnibond-hide-ips') !== 'false';
+let hideIps = true;
 let graphMode = localStorage.getItem('omnibond-graph-mode') === 'bonded' ? 'bonded' : 'master';
 let peakTotalBps = 0;
 let renderedAppStructure = '';
+let chartHoverX = null;
+let topbarFeedbackUntil = 0;
 document.getElementById('appSortSelect').value = currentAppSort;
 
 const APP_PALETTE_COLORS = [
@@ -1044,6 +1097,7 @@ function closeStyledSelects(except = null) {
   document.querySelectorAll('.styled-select-wrap.open').forEach(wrap => {
     if (wrap === except) return;
     wrap.classList.remove('open');
+    if (wrap._styledChevron) wrap._styledChevron.textContent = '▼';
     wrap._styledMenu?.remove();
     wrap._styledMenu = null;
     wrap._styledTrigger?.setAttribute('aria-expanded', 'false');
@@ -1117,10 +1171,11 @@ function syncStyledSelect(select) {
       ? document.querySelector(`label[for="${CSS.escape(select.id)}"]`)?.textContent?.trim()
       : '';
     trigger.setAttribute('aria-label', select.getAttribute('aria-label') || linkedLabel || select.title || 'Choose an option');
-    trigger.innerHTML = '<span class="styled-select-trigger-label"></span><span class="styled-select-chevron" aria-hidden="true">▾</span>';
+    trigger.innerHTML = '<span class="styled-select-trigger-label"></span><span class="styled-select-chevron" aria-hidden="true">▼</span>';
     wrap.insertBefore(trigger, select);
     wrap._styledTrigger = trigger;
     wrap._styledLabel = trigger.querySelector('.styled-select-trigger-label');
+    wrap._styledChevron = trigger.querySelector('.styled-select-chevron');
     trigger.addEventListener('pointerdown', event => {
       event.stopPropagation();
       wrap._wasOpenOnPointerDown = wrap.classList.contains('open');
@@ -1145,29 +1200,95 @@ function syncStyledSelect(select) {
       menu.style.display = 'block';
       menu.setAttribute('role', 'listbox');
       menu.setAttribute('aria-label', trigger.getAttribute('aria-label'));
-      Array.from(select.options).forEach((option, index) => {
-        const item = document.createElement('button');
-        item.type = 'button';
-        item.className = 'styled-select-option';
-        item.setAttribute('role', 'option');
-        item.setAttribute('aria-selected', String(index === select.selectedIndex));
-        item.textContent = option.textContent.trim();
-        item.disabled = option.disabled;
-        item.addEventListener('click', () => {
-          select.selectedIndex = index;
-          select.dispatchEvent(new Event('change', { bubbles: true }));
-          closeStyledSelects();
-          trigger.focus();
+      const optionsContainer = document.createElement('div');
+      let activeCat = 'ALL';
+      let searchQuery = '';
+      function buildMenuOptions() {
+        optionsContainer.replaceChildren();
+        let visibleCnt = 0;
+        Array.from(select.options).forEach((option, index) => {
+          const optCat = option.dataset.category || 'ALL';
+          const optPinned = option.dataset.pinned === 'true';
+          if (select.id === 'addAppSelect' && activeCat !== 'ALL') {
+            if (activeCat === 'PINNED') {
+              if (!optPinned) return;
+            } else if (optCat !== activeCat) {
+              return;
+            }
+          }
+          const txt = option.textContent.trim();
+          if (searchQuery && !txt.toLowerCase().includes(searchQuery) && !option.value.toLowerCase().includes(searchQuery)) {
+            return;
+          }
+          visibleCnt++;
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = 'styled-select-option';
+          item.setAttribute('role', 'option');
+          item.setAttribute('aria-selected', String(index === select.selectedIndex));
+          item.textContent = txt;
+          item.disabled = option.disabled;
+          item.addEventListener('click', ev => {
+            ev.stopPropagation();
+            select.selectedIndex = index;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            closeStyledSelects();
+            trigger.focus();
+          });
+          optionsContainer.appendChild(item);
         });
-        menu.appendChild(item);
-      });
+        if (!visibleCnt) {
+          const empty = document.createElement('div');
+          empty.style.cssText = 'padding:10px;color:#71717a;font-size:11px;text-align:center;';
+          empty.textContent = 'No matching programs found';
+          optionsContainer.appendChild(empty);
+        }
+      }
+      if (select.id === 'addAppSelect') {
+        const filterHead = document.createElement('div');
+        filterHead.className = 'styled-select-filter-head';
+        filterHead.addEventListener('pointerdown', ev => ev.stopPropagation());
+        filterHead.addEventListener('click', ev => ev.stopPropagation());
+        const searchRow = document.createElement('div');
+        searchRow.className = 'styled-select-search-row';
+        searchRow.innerHTML = '<span>🔎</span><input type="text" placeholder="Filter applications...">';
+        const sInput = searchRow.querySelector('input');
+        sInput.addEventListener('input', () => {
+          searchQuery = sInput.value.trim().toLowerCase();
+          buildMenuOptions();
+        });
+        const catBar = document.createElement('div');
+        catBar.className = 'styled-select-cat-bar';
+        ['ALL', 'USER APPS', 'ACTIVE NET', 'PINNED', 'SERVICES / BG'].forEach(catName => {
+          const cBtn = document.createElement('button');
+          cBtn.type = 'button';
+          cBtn.className = `styled-select-cat-btn ${catName === activeCat ? 'active' : ''}`.trim();
+          cBtn.textContent = catName;
+          cBtn.addEventListener('click', ev => {
+            ev.stopPropagation();
+            activeCat = catName;
+            catBar.querySelectorAll('.styled-select-cat-btn').forEach(b => b.classList.toggle('active', b === cBtn));
+            buildMenuOptions();
+          });
+          catBar.appendChild(cBtn);
+        });
+        filterHead.appendChild(searchRow);
+        filterHead.appendChild(catBar);
+        menu.appendChild(filterHead);
+        setTimeout(() => sInput.focus({ preventScroll: true }), 10);
+      }
+      buildMenuOptions();
+      menu.appendChild(optionsContainer);
       document.body.appendChild(menu);
       wrap._styledMenu = menu;
       wrap.classList.add('open');
+      if (wrap._styledChevron) wrap._styledChevron.textContent = '▲';
       trigger.setAttribute('aria-expanded', 'true');
       positionStyledSelect(wrap);
-      const selected = menu.querySelector('[aria-selected="true"]:not(:disabled)');
-      selected?.focus({ preventScroll: true });
+      if (select.id !== 'addAppSelect') {
+        const selected = menu.querySelector('[aria-selected="true"]:not(:disabled)');
+        selected?.focus({ preventScroll: true });
+      }
       positionStyledSelect(wrap);
     });
     trigger.addEventListener('keydown', event => {
@@ -1372,7 +1493,7 @@ function renderProcDropdown() {
   const sel = document.getElementById('addAppSelect');
   if (!sel) return;
   const prev = sel.value;
-  let html = `<option value="__turbo_accelerator__">[ENGINE] Turbo Accelerator (Built-in)</option>`;
+  let html = `<option value="__turbo_accelerator__" data-category="USER APPS" data-pinned="false">[ENGINE] Turbo Accelerator (Built-in)</option>`;
   for (const p of allProcesses) {
     const tag = p.category === 'USER APPS' ? 'APP' : (p.category === 'ACTIVE NET' ? 'NET' : 'SVC');
     const friendly = p.display_name && p.display_name.toLowerCase() !== p.exe_name.toLowerCase()
@@ -1380,7 +1501,9 @@ function renderProcDropdown() {
       : p.exe_name;
     const title = p.window_title ? ` — ${p.window_title.slice(0, 24)}` : '';
     const safeName = p.exe_name.replaceAll('"', '&quot;');
-    html += `<option value="${safeName}">[${tag}] ${escapeHtml(friendly)} · PID ${p.pid}${escapeHtml(title)}</option>`;
+    const safeCat = escapeHtml(p.category || 'USER APPS');
+    const isPin = Boolean(p.is_pinned);
+    html += `<option value="${safeName}" data-category="${safeCat}" data-pinned="${isPin}">[${tag}] ${escapeHtml(friendly)} · PID ${p.pid}${escapeHtml(title)}</option>`;
   }
   sel.innerHTML = html;
   if (prev) sel.value = prev;
@@ -1558,6 +1681,57 @@ function drawGoogleStyleChart(adapters) {
     ctx.stroke();
   });
 
+  if (chartHoverX !== null && chartHoverX >= padL && chartHoverX <= (padL + plotW) && adapters.length) {
+    ctx.save();
+    ctx.strokeStyle = '#3f3f46';
+    ctx.setLineDash([2, 2]);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(chartHoverX, padT);
+    ctx.lineTo(chartHoverX, padT + plotH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    const histLen = adapterSpeedHistory(adapters[0]).length;
+    const rel = (chartHoverX - padL) / Math.max(1, plotW);
+    const sampleIdx = Math.min(histLen - 1, Math.max(0, Math.round(rel * (histLen - 1))));
+    const lines = [];
+    adapters.forEach((a, idx) => {
+      const hist = adapterSpeedHistory(a);
+      const val = sampleIdx < hist.length ? hist[sampleIdx] : 0;
+      const px = padL + (sampleIdx / Math.max(1, histLen - 1)) * plotW;
+      const py = padT + plotH - Math.min(1, Math.max(0, val / maxBps)) * plotH;
+      // Un-outlined circle in a slightly lighter shade of the adapter color
+      const hHex = (a.color || '#38bdf8').replace('#', '');
+      const r = Math.min(255, Math.round(parseInt(hHex.slice(0,2), 16) + (255 - parseInt(hHex.slice(0,2), 16)) * 0.28));
+      const g = Math.min(255, Math.round(parseInt(hHex.slice(2,4), 16) + (255 - parseInt(hHex.slice(2,4), 16)) * 0.28));
+      const b = Math.min(255, Math.round(parseInt(hHex.slice(4,6), 16) + (255 - parseInt(hHex.slice(4,6), 16)) * 0.28));
+      ctx.beginPath();
+      ctx.arc(px, py, 4, 0, Math.PI * 2);
+      ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+      ctx.fill();
+      lines.push({ text: `${String(idx + 1).padStart(2, '0')} ${a.name.slice(0, 12)}: ${fmtSpeed(val)}`, color: a.color });
+    });
+
+    const boxW = 180;
+    const boxH = 14 + lines.length * 16;
+    const bx0 = (chartHoverX + 12 + boxW < w - padR) ? chartHoverX + 12 : chartHoverX - boxW - 12;
+    const by0 = padT + 6;
+    ctx.fillStyle = '#121218';
+    ctx.strokeStyle = '#30303b';
+    ctx.lineWidth = 1;
+    ctx.fillRect(bx0, by0, boxW, boxH);
+    ctx.strokeRect(bx0, by0, boxW, boxH);
+    ctx.font = 'bold 10px Consolas, monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    lines.forEach((ln, lIdx) => {
+      ctx.fillStyle = ln.color;
+      ctx.fillText(ln.text, bx0 + 10, by0 + 13 + lIdx * 16);
+    });
+    ctx.restore();
+  }
+
   ctx.restore();
 }
 
@@ -1577,7 +1751,7 @@ async function fetchState() {
     document.getElementById('liveTotalSpeed').textContent = fmtSpeed(totalBps);
     document.getElementById('peakTotalSpeed').textContent = fmtSpeed(peakTotalBps);
     document.getElementById('btnSysProxy').textContent = st.system_proxy ? '◈ Bonding: On' : '◈ Bonding: Off';
-    document.querySelector('.topbar')?.classList.toggle('bonding-active', Boolean(st.system_proxy));
+    document.querySelector('.topbar')?.classList.toggle('bonding-active', Boolean(st.system_proxy) || Date.now() < topbarFeedbackUntil);
     updateGraphModeButton();
     const adapterTelemetryStatus = graphMode === 'master'
       ? st.system_adapter_telemetry_status
@@ -1882,8 +2056,13 @@ function onCustomAppFilePicked(fileInput) {
   fileInput.value = '';
 }
 
-function openAddProgram() {
+async function openAddProgram() {
   closeStyledSelects();
+  try {
+    const res = await fetch('/api/processes');
+    const data = await res.json();
+    allProcesses = data.detailed || [];
+  } catch (_e) {}
   renderProcDropdown();
   const customInput = document.getElementById('customAppName');
   customInput.value = '';
@@ -1962,12 +2141,32 @@ async function toggleAdapter(ip, enabled) {
   fetchState();
 }
 
+function triggerTopbarActionFeedback(btnId, activeLabel, defaultLabel, durationMs = 2300) {
+  const btn = document.getElementById(btnId);
+  const topbar = document.querySelector('.topbar');
+  topbarFeedbackUntil = Date.now() + durationMs;
+  topbar?.classList.add('bonding-active');
+  if (btn) {
+    btn.textContent = activeLabel;
+    btn.classList.add('emerald-flow');
+    clearTimeout(btn._feedbackTimer);
+    btn._feedbackTimer = setTimeout(() => {
+      btn.classList.remove('emerald-flow');
+      btn.textContent = defaultLabel;
+      if (!latestState?.system_proxy && Date.now() >= topbarFeedbackUntil) {
+        topbar?.classList.remove('bonding-active');
+      }
+    }, durationMs);
+  }
+}
+
 async function toggleSystemProxy() { await fetch('/api/system_proxy', {method: 'POST'}); fetchState(); }
 async function repairNetwork() {
-  const res = await fetch('/api/repair_network', {method: 'POST'});
-  const data = await res.json();
+  const btn = document.getElementById('btnRepairNet');
+  if (btn) { btn.textContent = '✚ Repairing...'; btn.classList.add('emerald-flow'); }
+  await fetch('/api/repair_network', {method: 'POST'});
   await fetchState();
-  await showThemedDialog('Network Repaired', data.message || 'Windows proxy and interface metrics restored to default.');
+  triggerTopbarActionFeedback('btnRepairNet', '✓ Network Repaired', '✚ Repair Network', 2400);
 }
 function openNetworkTuning() {
   closeStyledSelects();
@@ -2070,7 +2269,14 @@ async function saveAdapterLimits(button) {
   }
 }
 async function simulateTrafficBurst() { await fetch('/api/simulate_burst', {method: 'POST'}); fetchState(); }
-async function refreshAdapters() { await fetch('/api/refresh_adapters', {method: 'POST'}); fetchState(); }
+async function refreshAdapters() {
+  const btn = document.getElementById('btnRescanNics');
+  if (btn) { btn.textContent = '⟳ Scanning...'; btn.classList.add('emerald-flow'); }
+  await fetch('/api/refresh_adapters', {method: 'POST'});
+  await fetchState();
+  const cnt = latestState?.adapters?.length || 0;
+  triggerTopbarActionFeedback('btnRescanNics', `✓ ${cnt} Adapters Ready`, '⟳ Rescan Adapters', 2200);
+}
 async function startDownload() {
   const url = document.getElementById('dlUrl').value.trim();
   if (!url) return;
@@ -2083,10 +2289,26 @@ async function startDownload() {
 }
 
 
-(function initStudioTooltip() {
+(function initStudioTooltipAndChartHover() {
+  const chartCv = document.getElementById('telemetryChart');
+  if (chartCv) {
+    chartCv.addEventListener('mousemove', ev => {
+      const rect = chartCv.getBoundingClientRect();
+      chartHoverX = ev.clientX - rect.left;
+      if (latestState) drawGoogleStyleChart(latestState.adapters);
+    });
+    chartCv.addEventListener('mouseleave', () => {
+      chartHoverX = null;
+      if (latestState) drawGoogleStyleChart(latestState.adapters);
+    });
+  }
+
   const tip = document.getElementById('studioTooltip');
   if (!tip) return;
   let activeEl = null;
+  let showTimer = null;
+  let lastX = 0, lastY = 0;
+
   function positionTip(x, y) {
     const pad = 12;
     const tw = tip.offsetWidth || 220;
@@ -2098,36 +2320,55 @@ async function startDownload() {
     tip.style.left = `${lx}px`;
     tip.style.top = `${ly}px`;
   }
+
+  function hideTip() {
+    if (showTimer) { clearTimeout(showTimer); showTimer = null; }
+    tip.style.display = 'none';
+  }
+
   document.addEventListener('mouseover', event => {
     const el = event.target instanceof Element ? event.target.closest('[title], [data-studio-tip]') : null;
     if (!el) {
       activeEl = null;
-      tip.style.display = 'none';
+      hideTip();
       return;
     }
     if (el.getAttribute('title')) {
       el.setAttribute('data-studio-tip', el.getAttribute('title'));
       el.removeAttribute('title');
     }
-    const text = el.getAttribute('data-studio-tip');
-    if (!text) return;
+    if (el === activeEl) return;
     activeEl = el;
-    tip.textContent = text;
-    tip.style.display = 'block';
-    positionTip(event.clientX, event.clientY);
+    hideTip();
+    const rawText = el.getAttribute('data-studio-tip');
+    if (!rawText) return;
+    lastX = event.clientX;
+    lastY = event.clientY;
+    const labelHead = (el.textContent || 'OMNIBOND').trim().slice(0, 28).toUpperCase();
+    showTimer = setTimeout(() => {
+      if (!activeEl) return;
+      tip.innerHTML = `${escapeHtml(labelHead)}<small>${escapeHtml(rawText)}</small>`;
+      tip.style.display = 'block';
+      positionTip(lastX, lastY);
+    }, 380);
   });
+
   document.addEventListener('mousemove', event => {
+    lastX = event.clientX;
+    lastY = event.clientY;
     if (activeEl && tip.style.display === 'block') {
-      positionTip(event.clientX, event.clientY);
+      positionTip(lastX, lastY);
     }
   });
+
   document.addEventListener('mouseout', event => {
     if (activeEl && (!event.relatedTarget || !activeEl.contains(event.relatedTarget))) {
       activeEl = null;
-      tip.style.display = 'none';
+      hideTip();
     }
   });
-  document.addEventListener('pointerdown', () => { tip.style.display = 'none'; }, true);
+  document.addEventListener('pointerdown', hideTip, true);
+  window.addEventListener('scroll', hideTip, true);
 })();
 
 syncStyledSelects();
