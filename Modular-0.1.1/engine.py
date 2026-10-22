@@ -13,7 +13,7 @@ import subprocess
 import sys
 import threading
 import time
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 from adapter_manager import AdapterManager
 from config import (
@@ -36,7 +36,7 @@ from turbo_accelerator import TurboAccelerator
 from web_handler import WebUIHandler
 
 # =====================================================================
-# 8. OMNIBOND CORE ENGINE
+# 8. OMNIBOND CORE ENGINE & SMART BROWSER TAB / INSTANCE LAUNCHER
 # =====================================================================
 
 _GECKO_BROWSER_TOKENS = (
@@ -238,23 +238,78 @@ def discover_existing_browsers() -> List[str]:
     return candidates
 
 
+def _get_running_process_names() -> Set[str]:
+    """Returns a lowercase set of currently running executable names across the OS."""
+    running: Set[str] = set()
+    if IS_WINDOWS:
+        try:
+            mapper = ProcessMapper(location_path="")
+            for exe_name, _pid in mapper._enumerate_windows_processes():
+                running.add(exe_name.lower())
+                if exe_name.lower().endswith(".exe"):
+                    running.add(exe_name[:-4].lower())
+        except Exception:
+            pass
+    else:
+        try:
+            proc = subprocess.run(
+                ["ps", "-eo", "comm"],
+                capture_output=True,
+                text=True,
+                timeout=1.5,
+            )
+            for line in proc.stdout.splitlines():
+                name = os.path.basename(line.strip()).lower()
+                if name:
+                    running.add(name)
+        except Exception:
+            pass
+    return running
+
+
+def is_browser_running(exe_path: str, running_names: Optional[Set[str]] = None) -> bool:
+    """Checks whether the given browser executable is currently running on the system."""
+    if running_names is None:
+        running_names = _get_running_process_names()
+    exe_base = os.path.basename(exe_path).lower()
+    stem = exe_base[:-4] if exe_base.endswith(".exe") else exe_base
+    if exe_base in running_names or stem in running_names:
+        return True
+    # Opera launcher.exe spawns opera.exe in process list
+    if stem == "launcher" and "opera" in exe_path.lower():
+        return "opera.exe" in running_names or "opera" in running_names
+    return False
+
+
 def _build_browser_launch_command(
-    exe: str, url: str, browser_profile: Optional[str] = None
+    exe: str,
+    url: str,
+    browser_profile: Optional[str] = None,
+    open_in_running: bool = False,
 ) -> List[str]:
-    """Builds the appropriate command-line arguments for Firefox/Gecko, Chromium, or generic browsers."""
+    """
+    Builds the launch command for Firefox/Gecko, Chromium, or generic browsers:
+    - If `open_in_running=True`, opens `url` as a new tab in the already-running browser
+      (never passing `-no-remote` or `--user-data-dir` so it attaches to the active session).
+    - If `open_in_running=False` and `browser_profile` is None, launches the browser normally.
+    - If `browser_profile` is explicitly passed while `open_in_running=False`, uses the isolated profile.
+    """
     exe_name = os.path.basename(exe).lower()
     if any(token in exe_name for token in _GECKO_BROWSER_TOKENS):
+        if open_in_running:
+            return [exe, "-new-tab", url]
         if browser_profile:
             ff_profile = os.path.join(browser_profile, "firefox_profile")
             os.makedirs(ff_profile, exist_ok=True)
             return [exe, "-no-remote", "-profile", ff_profile, "-new-window", url]
-        return [exe, "-new-window", url]
+        return [exe, url]
 
     if any(token in exe_name for token in _CHROMIUM_BROWSER_TOKENS):
-        command = [exe, f"--app={url}", "--window-size=1360,880"]
+        if open_in_running:
+            return [exe, url]
         if browser_profile:
-            command.append(f"--user-data-dir={browser_profile}")
-        return command
+            return [exe, f"--app={url}", "--window-size=1360,880", f"--user-data-dir={browser_profile}"]
+        return [exe, url]
 
     return [exe, url]
 
@@ -262,19 +317,45 @@ def _build_browser_launch_command(
 def launch_frameless_web_app(
     url: str, browser_profile: Optional[str] = None
 ) -> Optional[subprocess.Popen]:
-    for exe in discover_existing_browsers():
-        try:
-            command = _build_browser_launch_command(exe, url, browser_profile=browser_profile)
-            return subprocess.Popen(
-                command,
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            )
-        except OSError:
-            pass
+    """
+    Checks which browsers are installed on the system:
+    1. If an installed browser is already running, opens a new tab in that running browser.
+    2. If no browser is currently running, launches the first installed browser.
+    """
+    installed_browsers = discover_existing_browsers()
+    running_names = _get_running_process_names()
+
+    # 1. Prefer opening a new tab in an already-running browser
+    if installed_browsers:
+        for exe in installed_browsers:
+            if is_browser_running(exe, running_names):
+                try:
+                    command = _build_browser_launch_command(
+                        exe, url, browser_profile=None, open_in_running=True
+                    )
+                    return subprocess.Popen(
+                        command,
+                        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                    )
+                except OSError:
+                    pass
+
+        # 2. Otherwise launch the first installed browser
+        for exe in installed_browsers:
+            try:
+                command = _build_browser_launch_command(
+                    exe, url, browser_profile=browser_profile, open_in_running=False
+                )
+                return subprocess.Popen(
+                    command,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
+            except OSError:
+                pass
 
     try:
         import webbrowser
-        if webbrowser.open(url, new=1):
+        if webbrowser.open(url, new=2):
             return None
     except Exception as e:
         print(f"Could not open the OmniBond dashboard: {e}", file=sys.stderr)
@@ -377,13 +458,13 @@ class OmniBondEngine:
                 if byte_delta:
                     app_name = self.process_mapper.get_exe_name(pid)
                     self.routing_mgr.record_process_bytes(app_name, pid, byte_delta)
-            tick_count += 1
-            # Periodically re-sync running processes every ~6 seconds in background
-            if tick_count % 12 == 0:
+            # Re-sync running processes every ~6 seconds in background
+            if tick_count % 12 == 0 and self.cached_detailed_procs:
                 try:
                     self.scan_and_sync_processes()
                 except Exception:
                     pass
+            tick_count += 1
             time.sleep(0.5)
 
     def simulate_telemetry_wave(self):

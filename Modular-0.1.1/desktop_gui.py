@@ -193,7 +193,7 @@ class OmniBondDesktopGUI:
 
         self._make_studio_btn(
             actions_right,
-            "🩹 Repair Network",
+            "✚ Repair Network",
             "EMERGENCY NETWORK RESET & REPAIR",
             "Resets Windows system proxy to Direct, restores all interface metrics to automatic, and flushes the DNS cache.",
             variant="dark",
@@ -645,9 +645,12 @@ class OmniBondDesktopGUI:
             elif p.has_active_socket:
                 meta_parts.append("Active Socket")
 
+            friendly_lbl = getattr(p, "display_name", "") or p.exe_name
+            if friendly_lbl.lower() != p.exe_name.lower():
+                meta_parts.insert(0, p.exe_name)
             dd_items.append({
                 "value": p.exe_name,
-                "label": p.exe_name,
+                "label": friendly_lbl,
                 "meta": " · ".join(meta_parts),
                 "category": p.category,
                 "badge": badge,
@@ -709,6 +712,10 @@ class OmniBondDesktopGUI:
         popup.geometry(f"510x370+{self.root.winfo_rootx() + 220}+{self.root.winfo_rooty() + 180}")
 
         def close_popup():
+            if self.dd_app is not None:
+                self.dd_app._close_popup()
+            if self.dd_policy is not None:
+                self.dd_policy._close_popup()
             self.dd_app = None
             self.dd_policy = None
             self.ent_custom_app = None
@@ -780,6 +787,10 @@ class OmniBondDesktopGUI:
 
     def _assign_app_rule_and_close(self, popup: tk.Toplevel):
         if self._assign_app_rule():
+            if self.dd_app is not None:
+                self.dd_app._close_popup()
+            if self.dd_policy is not None:
+                self.dd_policy._close_popup()
             self.dd_app = None
             self.dd_policy = None
             self.ent_custom_app = None
@@ -849,7 +860,7 @@ class OmniBondDesktopGUI:
             return sorted(entries, key=lambda entry: (entry.get("bps", 0), entry["display_name"].casefold()))
         return sorted(entries, key=lambda entry: entry["display_name"].casefold())
 
-    def _show_card_policy_menu(self, app_key: str, screen_x: int, screen_y: int):
+    def _show_card_policy_menu(self, app_key: str, screen_x: int, screen_y: int, accent_col: str = ""):
         selected = self.engine.routing_mgr.get_rule(app_key)
         menu = tk.Menu(
             self.root,
@@ -857,7 +868,7 @@ class OmniBondDesktopGUI:
             bg="#0d0d12",
             fg=self.TEXT_MAIN,
             font=("Segoe UI", 9),
-            activebackground=self.AMBER,
+            activebackground=accent_col or self.AMBER,
             activeforeground="#09090b",
             activeborderwidth=0,
             borderwidth=1,
@@ -893,7 +904,7 @@ class OmniBondDesktopGUI:
         if self.app_filter_mode == "SERVICES":
             return [
                 entry for entry in entries
-                if entry.get("is_running") and entry.get("category") == "SERVICES / BG"
+                if entry.get("is_running") and entry.get("category") in ("SERVICES / BG", "ACTIVE NET")
             ]
         if self.app_filter_mode == "FAVORITES":
             return [entry for entry in entries if entry.get("is_favorite")]
@@ -1556,8 +1567,7 @@ class OmniBondDesktopGUI:
             y0, y1 = 1, h - 1
             self._adapter_card_regions.append((x0, y0, x1, y1, a.ip))
 
-            if idx > 0:
-                c.create_line(x0, 0, x0, h, fill=self.BG_HAIRLINE)
+            c.create_rectangle(x0, 0, x1 - 1, h - 1, fill=self.BG_PANEL, outline=self.BG_HAIRLINE)
 
             pad_x = x0 + 15
             c.create_rectangle(pad_x, 12, pad_x + 24, 29, fill=a.color, outline="")
@@ -1679,11 +1689,7 @@ class OmniBondDesktopGUI:
             y0 = int(row * cell_h)
             y1 = int((row + 1) * cell_h)
 
-            if col > 0:
-                c.create_line(x0, y0, x0, y1, fill=self.BG_HAIRLINE)
-            if row > 0:
-                c.create_line(x0, y0, x1, y0, fill=self.BG_HAIRLINE)
-            c.create_line(x0, y1, x1, y1, fill=self.BG_HAIRLINE)
+            c.create_rectangle(x0, y0, x1 - 1, y1 - 1, fill=self.BG_PANEL, outline=self.BG_HAIRLINE)
 
             _, accent_col, fill_dark = ADAPTER_PALETTE[idx % len(ADAPTER_PALETTE)]
             pad_x = x0 + 14
@@ -1732,21 +1738,22 @@ class OmniBondDesktopGUI:
             )
             self._app_card_regions.append((loc_x0, loc_y0, loc_x1, loc_y1, "location", r["app_name"], r["last_pid"]))
 
-            # 2. App Identity Row (Icon + Two-Tone Title + Running Window/PID Subtitle)
+            # 2. App Identity Row (Icon + Actual App Name + Safe Spacing + Subtitle)
             disp = r["display_name"]
+            exe_key = r["app_name"]
             if "Turbo Accelerator" in disp:
-                part1, part2 = "Turbo", "Engine"
+                part1, part2 = "Turbo Accelerator", "ENGINE"
                 sub_desc = "Parallel range & stream splitter"
-            elif "." in disp:
-                dot = disp.rfind(".")
-                part1 = disp[:dot].capitalize()
-                part2 = disp[dot:]
-                sub_desc = r["window_title"][:24] if r.get("window_title") else (
-                    f"Running · PID {r['last_pid']}" if r.get("is_running") and r.get("last_pid") else "Pinned Process Rule"
-                )
             else:
-                part1, part2 = disp.capitalize(), ""
-                sub_desc = "Process socket routing rule"
+                part1 = disp
+                part2 = exe_key if exe_key.lower() != disp.lower() else ""
+                if r.get("window_title"):
+                    sub_desc = r["window_title"]
+                elif r.get("is_running"):
+                    role_lbl = "Background Service" if r.get("category") == "SERVICES / BG" else "Running Process"
+                    sub_desc = f"{role_lbl} · PID {r['last_pid']}" if r.get("last_pid") else role_lbl
+                else:
+                    sub_desc = "Pinned Process Rule"
 
             c.create_rectangle(pad_x, y0 + 36, pad_x + 32, y0 + 68, fill="#14141d", outline=accent_col)
             c.create_text(
@@ -1757,7 +1764,11 @@ class OmniBondDesktopGUI:
             )
 
             title_x = pad_x + 40
-            short_p1 = part1 if len(part1) <= 12 else part1[:11] + "…"
+            safe_right = x1 - 14
+            avail_px = max(90, safe_right - title_x)
+            badge_px = (len(part2) * 6 + 12) if part2 else 0
+            max_p1_chars = max(8, int((avail_px - badge_px) // 7))
+            short_p1 = part1 if len(part1) <= max_p1_chars else part1[: max_p1_chars - 1] + "…"
             t_id = c.create_text(
                 title_x, y0 + 44,
                 text=short_p1,
@@ -1766,17 +1777,22 @@ class OmniBondDesktopGUI:
                 font=("Segoe UI", 10, "bold"),
             )
             bbox = c.bbox(t_id)
-            next_x = bbox[2] if bbox else title_x + len(short_p1) * 7
-            c.create_text(
-                next_x, y0 + 44,
-                text=part2,
-                fill=accent_col,
-                anchor="w",
-                font=("Segoe UI", 10, "bold"),
-            )
+            next_x = (bbox[2] + 6) if bbox else (title_x + len(short_p1) * 7 + 6)
+            if part2 and next_x + 28 < safe_right:
+                max_p2_chars = max(4, int((safe_right - next_x) // 6))
+                short_p2 = part2 if len(part2) <= max_p2_chars else part2[: max_p2_chars - 1] + "…"
+                c.create_text(
+                    next_x, y0 + 45,
+                    text=short_p2,
+                    fill=accent_col,
+                    anchor="w",
+                    font=("Consolas", 8, "bold"),
+                )
+            max_sub_chars = max(14, int(avail_px // 6))
+            short_sub = sub_desc if len(sub_desc) <= max_sub_chars else sub_desc[: max_sub_chars - 1] + "…"
             c.create_text(
                 title_x, y0 + 60,
-                text=sub_desc,
+                text=short_sub,
                 fill=self.TEXT_MUTED,
                 anchor="w",
                 font=("Segoe UI", 8),
@@ -1852,9 +1868,9 @@ class OmniBondDesktopGUI:
                 font=("Consolas", 8),
             )
 
-            # 5. Bottom Policy Action Button
+            # 5. Bottom Policy Action Button (matched to application accent color)
             btn_y0, btn_y1 = y1 - 31, y1 - 7
-            c.create_rectangle(pad_x, btn_y0, x1 - 12, btn_y1, fill="#111118", outline="#272732")
+            c.create_rectangle(pad_x, btn_y0, x1 - 12, btn_y1, fill="#09090d", outline=accent_col)
             selected_policy = r["rule"]
             if selected_policy == "AUTO":
                 selected_name = "AUTO / BONDED"
@@ -1862,12 +1878,12 @@ class OmniBondDesktopGUI:
                 selected_name = "BLOCK INTERNET"
             else:
                 selected_name = ip_to_name.get(selected_policy, selected_policy)
-            action_lbl = f"POLICY: {selected_name}  [CLICK TO SELECT]"
+            action_lbl = f"POLICY: {selected_name}  ▾"
             c.create_text(
                 (pad_x + x1 - 12) / 2,
                 (btn_y0 + btn_y1) / 2,
                 text=action_lbl,
-                fill=self.TEXT_MAIN,
+                fill=accent_col,
                 font=("Segoe UI", 8, "bold"),
             )
             self._app_card_regions.append((pad_x, btn_y0, x1 - 12, btn_y1, "policy", r["app_name"], r["last_pid"]))

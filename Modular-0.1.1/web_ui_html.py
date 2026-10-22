@@ -116,34 +116,53 @@ WEB_UI_HTML = """<!DOCTYPE html>
   }
   .section-title { font-size: 16px; font-weight: 800; margin-top: 2px; }
 
+  /* Fixed Issues 2 & 8: Use var(--panel) background with explicit right & bottom borders on cards
+     so adapter cards have their right outline, program/service cards have their bottom outline,
+     and unoccupied grid cells never show a lighter hairline hue. */
   .bento-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-    gap: 1px;
-    background: var(--hairline);
+    grid-template-columns: repeat(auto-fill, minmax(235px, 1fr));
+    gap: 0;
+    background: var(--panel);
     border-bottom: 1px solid var(--hairline);
   }
   .adapter-scroll {
     width: 100%;
     overflow-x: auto;
     overscroll-behavior-x: contain;
+    background: var(--panel);
     scrollbar-color: #3f3f46 #0c0c0f;
   }
   #adapterBentoGrid {
     display: flex;
     width: max-content;
     min-width: 100%;
+    background: var(--panel);
+    border-bottom: 1px solid var(--hairline);
   }
-  #adapterBentoGrid .bento-card { flex: 0 0 280px; }
+  #adapterBentoGrid .bento-card {
+    flex: 0 0 280px;
+    border-right: 1px solid var(--hairline);
+    border-bottom: 1px solid var(--hairline);
+  }
   .app-grid-scroll {
     min-height: 240px;
     max-height: min(58vh, 680px);
     overflow: auto;
     overscroll-behavior: contain;
+    background: var(--panel);
     scrollbar-color: #3f3f46 #0c0c0f;
   }
-  #appBentoGrid { border-bottom: 0; }
-  #appBentoGrid.list-view { display: flex; flex-direction: column; gap: 1px; }
+  #appBentoGrid {
+    background: var(--panel);
+    border-bottom: 0;
+  }
+  #appBentoGrid.list-view {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    background: var(--panel);
+  }
   #appBentoGrid.list-view .bento-card {
     width: 100%;
     min-height: 0;
@@ -154,14 +173,18 @@ WEB_UI_HTML = """<!DOCTYPE html>
   #appBentoGrid.list-view .card-actions { flex: 0 0 auto; align-self: stretch; width: 100%; }
   #appBentoGrid.list-view .card-select-wrap { width: 100%; }
   #appBentoGrid.list-view .sparkline-box { width: 100%; max-width: none; }
-  .app-card-controls { display:flex; flex:0 0 auto; gap:6px; align-items:center; justify-content:flex-end; flex-wrap:nowrap; }
+  .app-card-controls { display:flex; flex:0 0 auto; gap:5px; align-items:center; justify-content:flex-end; flex-wrap:nowrap; }
   .bento-card {
     background: var(--panel);
+    border-right: 1px solid var(--hairline);
+    border-bottom: 1px solid var(--hairline);
     padding: 13px 15px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    min-height: 175px;
+    min-height: 178px;
+    min-width: 0;
+    overflow: hidden;
     transition: background 0.15s;
   }
   .bento-card:hover { background: var(--card-hover); }
@@ -169,6 +192,7 @@ WEB_UI_HTML = """<!DOCTYPE html>
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 8px;
     margin-bottom: 10px;
   }
   .num-badge {
@@ -177,6 +201,7 @@ WEB_UI_HTML = """<!DOCTYPE html>
     font-weight: 800;
     color: #09090b;
     padding: 2px 6px;
+    flex-shrink: 0;
   }
   .card-meta-links {
     font-family: 'Consolas', monospace;
@@ -189,8 +214,8 @@ WEB_UI_HTML = """<!DOCTYPE html>
     flex: 0 0 auto;
     align-items: center;
     justify-content: center;
-    height: 27px;
-    padding: 0 7px;
+    height: 26px;
+    padding: 0 6px;
     white-space: nowrap;
     font-family: 'Consolas', monospace;
     font-size: 9px;
@@ -199,12 +224,12 @@ WEB_UI_HTML = """<!DOCTYPE html>
     cursor: pointer;
   }
   .favorite-btn {
-    width: 30px;
+    width: 28px;
     padding: 0;
-    font-size: 14px;
+    font-size: 13px;
   }
   .focus-link, .app-card-controls .card-btn {
-    width: 76px;
+    width: 72px;
     color: var(--text);
     background: #121218;
     border: 1px solid #30303b;
@@ -214,8 +239,6 @@ WEB_UI_HTML = """<!DOCTYPE html>
     background: #1c1c27;
     border-color: var(--amber);
   }
-  .focus-link {
-  }
   .favorite-btn {
     color: var(--text);
     background: #121218;
@@ -223,11 +246,15 @@ WEB_UI_HTML = """<!DOCTYPE html>
   }
   .favorite-btn.active { color: var(--amber); border-color: var(--amber); }
 
+  /* Issue 5: Safe space & clean truncation for application names inside card containers */
   .card-identity {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 9px;
+    margin-bottom: 10px;
+    min-width: 0;
+    width: 100%;
+    padding-right: 4px;
   }
   .card-icon {
     width: 34px;
@@ -241,8 +268,50 @@ WEB_UI_HTML = """<!DOCTYPE html>
     color: #fff;
     flex-shrink: 0;
   }
-  .card-name { font-size: 14.5px; font-weight: 800; }
-  .card-desc { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .card-identity-text {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    padding-right: 4px;
+  }
+  .card-name {
+    font-size: 13.5px;
+    font-weight: 800;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+    width: 100%;
+  }
+  .card-title-main {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex: 0 1 auto;
+  }
+  .card-title-ext {
+    font-family: 'Consolas', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: #14141d;
+    flex-shrink: 0;
+    max-width: 110px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .card-desc {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+  }
 
   .status-box {
     display: inline-block;
@@ -319,14 +388,16 @@ WEB_UI_HTML = """<!DOCTYPE html>
     font:700 10px 'Segoe UI',system-ui,sans-serif;
     text-align:left;
     cursor:pointer;
+    transition: border-color 0.14s ease, background 0.14s ease, color 0.14s ease;
   }
+  /* Issue 6: Match per-application policy dropdown border, text, and chevron with the app's accent color */
   .styled-select-wrap.card-select-wrap .styled-select-trigger {
     height:auto;
     min-height:31px;
-    padding:6px 30px 6px 8px;
-    color:var(--text);
+    padding:6px 30px 6px 10px;
+    color:var(--app-accent, var(--text));
     background:#09090d;
-    border-color:#272732;
+    border:1px solid var(--app-accent, #272732);
     font-size:10.5px;
     font-weight:800;
     text-transform:uppercase;
@@ -334,6 +405,12 @@ WEB_UI_HTML = """<!DOCTYPE html>
     background-position:calc(100% - 14px) 50%,calc(100% - 10px) 50%;
     background-size:4px 4px,4px 4px;
     background-repeat:no-repeat;
+  }
+  .styled-select-wrap.card-select-wrap .styled-select-trigger:hover,
+  .styled-select-wrap.card-select-wrap.open .styled-select-trigger {
+    background:#12121a;
+    border-color:var(--app-accent, var(--amber));
+    box-shadow: 0 0 0 1px var(--app-accent, var(--amber));
   }
   .styled-select-wrap.filter-select-wrap { flex:0 0 142px; height:31px; }
   .styled-select-wrap.sort-select-wrap { flex:0 0 154px; height:31px; margin-left:0; }
@@ -369,7 +446,7 @@ WEB_UI_HTML = """<!DOCTYPE html>
     padding:4px;
     color:var(--text);
     background:#101016;
-    border:1px solid #3a3a46;
+    border:1px solid var(--app-accent, #3a3a46);
     box-shadow:0 12px 30px rgba(0,0,0,.55);
   }
   .styled-select-wrap.open .styled-select-menu { display:block; }
@@ -388,8 +465,12 @@ WEB_UI_HTML = """<!DOCTYPE html>
     cursor:pointer;
   }
   .styled-select-option:hover, .styled-select-option[aria-selected="true"] {
-    color:#fff;
-    background:#292932;
+    color:var(--app-accent, #fff);
+    background:#1e1e28;
+  }
+  .styled-select-menu.card-select-menu .styled-select-option[aria-selected="true"] {
+    border-left: 2px solid var(--app-accent, var(--amber));
+    padding-left: 6px;
   }
   .view-switch { display:flex; align-items:center; gap:4px; }
   .view-switch .btn { padding:5px 9px; }
@@ -634,7 +715,7 @@ WEB_UI_HTML = """<!DOCTYPE html>
     <div class="top-actions">
       <button class="btn primary" id="btnSysProxy" title="Route all Windows HTTP/HTTPS & SOCKS5 traffic across active adapters" onclick="toggleSystemProxy()">◈ Bonding: Off</button>
       <button class="btn" title="Configure Windows multi-network and IP route optimization" onclick="openNetworkTuning()">⚙ Network Tuning</button>
-      <button class="btn" title="Reset Windows proxy to Direct, restore automatic interface metrics, and flush DNS" onclick="repairNetwork()">🩹 Repair Network</button>
+      <button class="btn" title="Reset Windows proxy to Direct, restore automatic interface metrics, and flush DNS" onclick="repairNetwork()">✚ Repair Network</button>
       <button class="btn" id="btnGraphMode" aria-live="polite" aria-pressed="false" onclick="toggleGraphMode()">∿ Master Speed</button>
       <button class="btn" title="Re-scan Windows network adapters and IPv4 addresses" onclick="refreshAdapters()">⟳ Rescan Adapters</button>
     </div>
@@ -925,6 +1006,10 @@ function syncStyledSelect(select) {
     select.parentNode.insertBefore(wrap, select);
     wrap.appendChild(select);
   }
+  const appAccent = select.style.getPropertyValue('--app-accent')?.trim() || select.dataset.appAccent || '';
+  if (appAccent) {
+    wrap.style.setProperty('--app-accent', appAccent);
+  }
   let trigger = wrap._styledTrigger;
   if (!trigger) {
     trigger = document.createElement('button');
@@ -947,7 +1032,13 @@ function syncStyledSelect(select) {
       }
       closeStyledSelects(wrap);
       const menu = document.createElement('div');
-      menu.className = 'styled-select-menu';
+      menu.className = select.classList.contains('card-select')
+        ? 'styled-select-menu card-select-menu'
+        : 'styled-select-menu';
+      const currentAccent = wrap.style.getPropertyValue('--app-accent')?.trim();
+      if (currentAccent) {
+        menu.style.setProperty('--app-accent', currentAccent);
+      }
       menu.style.display = 'block';
       menu.setAttribute('role', 'listbox');
       menu.setAttribute('aria-label', trigger.getAttribute('aria-label'));
@@ -1019,6 +1110,14 @@ function syncStyledSelects(root = document) {
 document.addEventListener('change', event => {
   if (event.target instanceof HTMLSelectElement) updateStyledSelectLabel(event.target);
 });
+/* Issue 7: Capture-phase pointerdown closes any open custom dropdown immediately when clicking anywhere else */
+document.addEventListener('pointerdown', event => {
+  const openWrap = document.querySelector('.styled-select-wrap.open');
+  if (!openWrap) return;
+  if (!openWrap.contains(event.target) && !openWrap._styledMenu?.contains(event.target)) {
+    closeStyledSelects();
+  }
+}, true);
 document.addEventListener('click', event => {
   if (!event.target.closest('.styled-select-wrap') && !event.target.closest('.styled-select-menu')) {
     closeStyledSelects();
@@ -1129,14 +1228,17 @@ function renderAdapterLimits(adapters) {
   });
 }
 
-function splitAppTitle(name) {
-  if (name.includes('Turbo Accelerator')) return ['Turbo', 'Engine'];
-  const dot = name.lastIndexOf('.');
-  if (dot > 0) {
-    const base = name.slice(0, dot);
-    return [base.charAt(0).toUpperCase() + base.slice(1), name.slice(dot)];
+function splitAppTitle(displayName, appName = '') {
+  if (displayName.includes('Turbo Accelerator')) return ['Turbo Accelerator', 'ENGINE'];
+  if (appName && displayName && displayName.toLowerCase() !== appName.toLowerCase()) {
+    return [displayName, appName];
   }
-  return [name, ''];
+  const dot = displayName.lastIndexOf('.');
+  if (dot > 0) {
+    const base = displayName.slice(0, dot);
+    return [base.charAt(0).toUpperCase() + base.slice(1), displayName];
+  }
+  return [displayName, appName || ''];
 }
 
 function setAppView(mode) {
@@ -1166,10 +1268,13 @@ function renderProcDropdown() {
   const prev = sel.value;
   let html = `<option value="__turbo_accelerator__">[ENGINE] Turbo Accelerator (Built-in)</option>`;
   for (const p of allProcesses) {
-    const tag = p.category === 'USER APPS' ? 'APP' : (p.category === 'ACTIVE NET' ? 'NET' : 'BG');
+    const tag = p.category === 'USER APPS' ? 'APP' : (p.category === 'ACTIVE NET' ? 'NET' : 'SVC');
+    const friendly = p.display_name && p.display_name.toLowerCase() !== p.exe_name.toLowerCase()
+      ? `${p.display_name} (${p.exe_name})`
+      : p.exe_name;
     const title = p.window_title ? ` — ${p.window_title.slice(0, 24)}` : '';
     const safeName = p.exe_name.replaceAll('"', '&quot;');
-    html += `<option value="${safeName}">[${tag}] ${p.exe_name} (PID ${p.pid})${title}</option>`;
+    html += `<option value="${safeName}">[${tag}] ${escapeHtml(friendly)} · PID ${p.pid}${escapeHtml(title)}</option>`;
   }
   sel.innerHTML = html;
   if (prev) sel.value = prev;
@@ -1360,8 +1465,8 @@ async function fetchState() {
           </div>
           <div class="card-identity">
             <div class="card-icon" style="background:${a.badge_bg}">${a.kind.slice(0,2).toUpperCase()}</div>
-            <div>
-              <div class="card-name">${a.name} <span style="color:${a.color}">${a.kind}</span></div>
+            <div class="card-identity-text">
+              <div class="card-name"><span class="card-title-main" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</span> <span class="card-title-ext" style="color:${a.color};border:1px solid ${a.color}44;">${escapeHtml(a.kind)}</span></div>
               <div class="card-desc">${a.latency_ms}ms RTT &middot; ${a.active_conns} Conns</div>
             </div>
           </div>
@@ -1410,13 +1515,20 @@ async function fetchState() {
     if (!appPolicyFocused && appStructure !== renderedAppStructure) {
       appGrid.innerHTML = visibleAppRules.map((r, idx) => {
       const col = paletteColors[idx % paletteColors.length];
-      const [mainTitle, subExt] = splitAppTitle(r.display_name);
+      const [mainTitle, subExt] = splitAppTitle(r.display_name, r.app_name);
       const selectedRule = r.rule;
       let rowOpts = `<option value="AUTO" ${selectedRule === 'AUTO' ? 'selected' : ''}>Auto / Bonded</option>
         <option value="BLOCK" ${selectedRule === 'BLOCK' ? 'selected' : ''}>Block Internet</option>`;
       st.adapters.forEach(a => {
         rowOpts += `<option value="${a.ip}" ${selectedRule === a.ip ? 'selected' : ''}>${a.name} (${a.ip})</option>`;
       });
+      const subText = r.rule === 'BLOCK'
+        ? 'Internet Disabled'
+        : (r.window_title
+          ? r.window_title
+          : (r.is_running
+            ? (r.category === 'SERVICES / BG' ? `Background Service · PID ${r.last_pid || '-'}` : `Running Process · PID ${r.last_pid || '-'}`)
+            : 'Pinned Rule'));
 
       return `
         <div class="bento-card" data-app-speed="${appSpeed(r)}">
@@ -1430,10 +1542,13 @@ async function fetchState() {
               </div>
             </div>
             <div class="card-identity">
-              <div class="card-icon" style="background:#14141d;color:${col};border:1px solid ${col}66;">${mainTitle.slice(0,2).toUpperCase()}</div>
-              <div>
-                <div class="card-name">${mainTitle}<span style="color:${col}">${subExt}</span></div>
-                <div class="card-desc" id="app_desc_${idx}">${r.rule === 'BLOCK' ? 'Internet Disabled' : (r.window_title ? r.window_title.slice(0,26) : (r.is_running ? 'Running Process' : 'Pinned Rule'))}</div>
+              <div class="card-icon" style="background:#14141d;color:${col};border:1px solid ${col}66;">${escapeHtml(mainTitle.slice(0,2).toUpperCase())}</div>
+              <div class="card-identity-text">
+                <div class="card-name" title="${escapeHtml(mainTitle)}${subExt ? ' (' + escapeHtml(subExt) + ')' : ''}">
+                  <span class="card-title-main">${escapeHtml(mainTitle)}</span>
+                  ${subExt ? `<span class="card-title-ext" style="color:${col};border:1px solid ${col}55;">${escapeHtml(subExt)}</span>` : ''}
+                </div>
+                <div class="card-desc" id="app_desc_${idx}" title="${escapeHtml(subText)}">${escapeHtml(subText)}</div>
               </div>
             </div>
             <div class="sparkline-box">
@@ -1448,7 +1563,7 @@ async function fetchState() {
             </div>
           </div>
           <div class="card-actions">
-            <select class="card-select" id="app_policy_${idx}" data-app-name="${escapeHtml(r.app_name)}" style="--app-accent:${col}" title="Select and apply a routing policy for ${r.display_name}" onchange="updateRuleInline('${r.app_name}', this.value)">
+            <select class="card-select" id="app_policy_${idx}" data-app-name="${escapeHtml(r.app_name)}" data-app-accent="${col}" style="--app-accent:${col}" title="Select and apply a routing policy for ${escapeHtml(r.display_name)}" onchange="updateRuleInline('${r.app_name}', this.value)">
               ${rowOpts}
             </select>
           </div>
@@ -1470,9 +1585,15 @@ async function fetchState() {
           `IP: ${r.last_adapter_ip} · Conns: ${r.active_connections} (${r.total_connections}) · ${fmtBytes(r.bytes_transferred)}`;
       }
       if (descriptionNode) {
-        descriptionNode.textContent = r.rule === 'BLOCK'
+        const subText = r.rule === 'BLOCK'
           ? 'Internet Disabled'
-          : (r.window_title ? r.window_title.slice(0, 26) : (r.is_running ? 'Running Process' : 'Pinned Rule'));
+          : (r.window_title
+            ? r.window_title
+            : (r.is_running
+              ? (r.category === 'SERVICES / BG' ? `Background Service · PID ${r.last_pid || '-'}` : `Running Process · PID ${r.last_pid || '-'}`)
+              : 'Pinned Rule'));
+        descriptionNode.textContent = subText;
+        descriptionNode.title = subText;
       }
       const cardNode = speedNode?.closest('.bento-card');
       if (cardNode) cardNode.dataset.appSpeed = String(appSpeed(r));
@@ -1506,6 +1627,7 @@ async function loadRunningApps() {
   const data = await res.json();
   allProcesses = data.detailed || [];
   renderProcDropdown();
+  fetchState();
 }
 
 async function updateRuleInline(appName, ruleVal) {
@@ -1542,6 +1664,7 @@ async function toggleFavorite(appName, favorite) {
 }
 
 function showThemedDialog(title, message, options = {}) {
+  closeStyledSelects();
   const modal = document.getElementById('noticeModal');
   const inputWrap = document.getElementById('noticeInputWrap');
   const input = document.getElementById('noticeInput');
@@ -1579,17 +1702,24 @@ function showThemedDialog(title, message, options = {}) {
 }
 
 function openAddProgram() {
+  closeStyledSelects();
   renderProcDropdown();
   document.getElementById('customAppName').value = '';
-  document.getElementById('addProgramModal').classList.add('open');
-  document.getElementById('addAppSelect').focus();
+  const modal = document.getElementById('addProgramModal');
+  modal.classList.add('open');
+  modal.onclick = event => {
+    if (event.target === modal) closeAddProgram();
+  };
+  document.getElementById('addAppSelect').closest('.styled-select-wrap')?._styledTrigger?.focus();
 }
 
 function closeAddProgram() {
+  closeStyledSelects();
   document.getElementById('addProgramModal').classList.remove('open');
 }
 
 async function submitAddProgram() {
+  closeStyledSelects();
   const customName = document.getElementById('customAppName').value.trim();
   const appName = customName || document.getElementById('addAppSelect').value;
   const policy = document.getElementById('addPolicySelect').value || 'AUTO';
@@ -1657,13 +1787,19 @@ async function repairNetwork() {
   await showThemedDialog('Network Repaired', data.message || 'Windows proxy and interface metrics restored to default.');
 }
 function openNetworkTuning() {
+  closeStyledSelects();
   document.getElementById('tuneMultiNic').checked = localStorage.getItem('omnibond-tune-multi-nic') !== 'false';
   document.getElementById('tuneIpv4').checked = localStorage.getItem('omnibond-tune-ipv4') !== 'false';
   document.getElementById('tuneIpv6').checked = localStorage.getItem('omnibond-tune-ipv6') === 'true';
   document.getElementById('networkTuningStatus').textContent = '';
-  document.getElementById('networkTuningModal').classList.add('open');
+  const modal = document.getElementById('networkTuningModal');
+  modal.classList.add('open');
+  modal.onclick = event => {
+    if (event.target === modal) closeNetworkTuning();
+  };
 }
 function closeNetworkTuning() {
+  closeStyledSelects();
   document.getElementById('networkTuningModal').classList.remove('open');
 }
 async function optimizeMultiNic() {

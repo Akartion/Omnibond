@@ -36,6 +36,7 @@ from engine import (
     OmniBondEngine,
     _build_browser_launch_command,
     discover_existing_browsers,
+    is_browser_running,
     launch_frameless_web_app,
 )
 from process_mapper import ProcessMapper
@@ -119,11 +120,16 @@ def run_selftest() -> int:
             "chrome.exe", "Browser window", False
         ) == "USER APPS"
         assert ProcessMapper.classify_process_category(
-            "chrome.exe", "", True
+            "explorer.exe", "", False
+        ) == "USER APPS"
+        assert ProcessMapper.classify_process_category(
+            "custom_daemon.exe", "", True
         ) == "ACTIVE NET"
         assert ProcessMapper.classify_process_category(
             "svchost.exe", "", False
         ) == "SERVICES / BG"
+        assert engine.process_mapper.resolve_friendly_app_name("explorer.exe") == "File Explorer"
+        assert "Gemini" in engine.process_mapper.resolve_friendly_app_name("chrome.exe", "Gemini - Google Chrome")
         assert "app.category === 'USER APPS'" in WEB_UI_HTML
         assert 'data-limit-mode="data_limit_gb"' in WEB_UI_HTML
         assert "styled-select-menu" in WEB_UI_HTML
@@ -242,6 +248,8 @@ def run_selftest() -> int:
         entries = {r["app_name"]: r for r in engine.routing_mgr.get_all_entries()}
         assert entries["steam.exe"]["last_adapter_ip"] == "127.0.0.1"
         assert entries["chrome.exe"]["last_adapter_ip"] == "127.0.0.2"
+        assert entries["steam.exe"]["display_name"] == "Steam Client"
+        assert entries["chrome.exe"]["display_name"] == "Google Chrome"
         assert "bps_history" in entries["steam.exe"]
         direct_telemetry_test = AppRoutingManager(persist_path="")
         direct_telemetry_test.record_process_bytes("tcp_test.exe", 4242, 8192)
@@ -251,7 +259,7 @@ def run_selftest() -> int:
         }["tcp_test.exe"]
         assert direct_entry["bytes_transferred"] == 8192
         assert direct_entry["bps"] > 0
-        print("[4/6] Proxy and direct per-app TCP speed history verified.")
+        print("[4/6] Proxy and direct per-app TCP speed history & friendly names verified.")
 
         limit_path = os.path.join(tmp_dir, "adapter_limits.json")
         limit_mgr = AdapterManager(
@@ -327,11 +335,37 @@ def run_selftest() -> int:
         assert ok_rep and not engine.sys_opt.system_proxy_enabled
         print("[7/7] Multi-NIC Round-Robin bonding, virtual NIC filtering & network repair verified.")
 
-        ff_cmd = _build_browser_launch_command("C:/Program Files/Mozilla Firefox/firefox.exe", "http://127.0.0.1:8085", tmp_dir)
-        assert "-profile" in ff_cmd and "-new-window" in ff_cmd and "http://127.0.0.1:8085" in ff_cmd
-        ch_cmd = _build_browser_launch_command("C:/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe", "http://127.0.0.1:8085", tmp_dir)
-        assert "--app=http://127.0.0.1:8085" in ch_cmd
-        print("[8/8] Multi-browser & Firefox launch command builder verified.")
+        ff_tab_cmd = _build_browser_launch_command(
+            "C:/Program Files/Mozilla Firefox/firefox.exe",
+            "http://127.0.0.1:8085",
+            open_in_running=True,
+        )
+        assert ff_tab_cmd == [
+            "C:/Program Files/Mozilla Firefox/firefox.exe",
+            "-new-tab",
+            "http://127.0.0.1:8085",
+        ]
+        ff_new_cmd = _build_browser_launch_command(
+            "C:/Program Files/Mozilla Firefox/firefox.exe",
+            "http://127.0.0.1:8085",
+            open_in_running=False,
+        )
+        assert ff_new_cmd == [
+            "C:/Program Files/Mozilla Firefox/firefox.exe",
+            "http://127.0.0.1:8085",
+        ]
+        ch_tab_cmd = _build_browser_launch_command(
+            "C:/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe",
+            "http://127.0.0.1:8085",
+            open_in_running=True,
+        )
+        assert ch_tab_cmd == [
+            "C:/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe",
+            "http://127.0.0.1:8085",
+        ]
+        assert is_browser_running("C:/Program Files/Mozilla Firefox/firefox.exe", {"firefox.exe"})
+        assert not is_browser_running("C:/Program Files/Mozilla Firefox/firefox.exe", {"chrome.exe"})
+        print("[8/8] Running-browser detection & new-tab vs. launch command builder verified.")
         print("=== ALL SELF-TESTS PASSED ===")
         return 0
     finally:
@@ -402,7 +436,7 @@ def show_startup_dialog() -> Optional[Tuple[str, bool]]:
     ).pack(anchor="w", pady=(0, 10))
 
     for value, heading, description in (
-        ("web", "Browser Dashboard", "Open the websocket dashboard in an app-style browser window."),
+        ("web", "Browser Dashboard", "Open the dashboard in a new tab of your running browser (or launch your browser)."),
         ("native", "Native GUI", "Open the Windows desktop interface."),
     ):
         choice = tk.Frame(
@@ -623,15 +657,19 @@ def main():
     engine = OmniBondEngine(auto_scan_procs=False, defer_adapter_scan=True)
     engine.start_services()
 
-    def refresh_adapters_in_background():
+    def refresh_startup_state_in_background():
+        try:
+            engine.scan_and_sync_processes()
+        except Exception as exc:
+            print(f"Could not scan running processes during startup: {exc}", file=sys.stderr)
         try:
             engine.adapter_mgr.refresh_adapters()
         except Exception as exc:
             print(f"Could not discover network adapters during startup: {exc}", file=sys.stderr)
 
     threading.Thread(
-        target=refresh_adapters_in_background,
-        name="omnibond-adapter-scan",
+        target=refresh_startup_state_in_background,
+        name="omnibond-startup-scan",
         daemon=True,
     ).start()
 
@@ -648,22 +686,26 @@ def main():
     if launch_mode != "native":
         print(f"OmniBond running at {url}")
         print(f"HTTP/HTTPS Proxy: 127.0.0.1:{engine.http_port} | SOCKS5: 127.0.0.1:{engine.socks_port}")
-        app_profile_dir = os.path.join(tempfile.gettempdir(), "omnibond_web_profile")
-        os.makedirs(app_profile_dir, exist_ok=True)
+        # Only use an isolated profile if --app was explicitly passed; otherwise open a new tab
+        # in the user's running browser (or launch their installed browser if not running).
+        app_profile_dir = None
+        if "--app" in sys.argv:
+            app_profile_dir = os.path.join(tempfile.gettempdir(), "omnibond_web_profile")
+            os.makedirs(app_profile_dir, exist_ok=True)
         launch_t0 = time.monotonic()
         browser_process = launch_frameless_web_app(url, browser_profile=app_profile_dir)
         try:
             if browser_process:
                 browser_process.wait()
-                # If Edge/Chrome handed off to an already-running browser process and exited
-                # immediately (< 4s), keep the OmniBond service running while the tab is open.
-                if (time.monotonic() - launch_t0) < 4.0:
-                    print("Browser handed off window to existing session; keeping OmniBond running (Ctrl+C to stop).")
+                # If the browser handed off the new tab to an already-running browser process
+                # and exited immediately (< 5s), keep the OmniBond service running while the tab is open.
+                if (time.monotonic() - launch_t0) < 5.0:
+                    print("Opened OmniBond tab in existing browser session; keeping OmniBond running (Ctrl+C to stop).")
                     while True:
                         time.sleep(1.0)
             else:
                 print(f"OmniBond dashboard is available at {url}")
-                print("No desktop browser could be auto-launched, so the web service will stay running until you stop it.")
+                print("Keeping OmniBond web service running (Ctrl+C to stop).")
                 while True:
                     time.sleep(1.0)
         except KeyboardInterrupt:

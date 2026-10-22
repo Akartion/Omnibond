@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -15,6 +16,7 @@ from typing import Dict, List, Set
 
 from config import (
     BLOCK_INTERNET_RULE,
+    FRIENDLY_APP_NAMES,
     RULES_FILE,
     TURBO_APP_KEY,
     TURBO_APP_LABEL,
@@ -24,6 +26,23 @@ from process_mapper import ProcessInfo
 # =====================================================================
 # 2. PER-APPLICATION ROUTING & LIVE SPEED TELEMETRY MANAGER
 # =====================================================================
+
+def _default_friendly_label(app_key: str, window_title: str = "") -> str:
+    norm = os.path.basename((app_key or "").strip().lower())
+    if not norm:
+        return "System Process"
+    if norm == TURBO_APP_KEY or "turbo" in norm:
+        return TURBO_APP_LABEL
+    if window_title and "gemini" in window_title.lower():
+        base = FRIENDLY_APP_NAMES.get(norm, "")
+        return f"Gemini ({base})" if base and base != "Google Gemini" else "Google Gemini"
+    if norm in FRIENDLY_APP_NAMES:
+        return FRIENDLY_APP_NAMES[norm]
+    stem = norm[:-4] if norm.endswith(".exe") else norm
+    cleaned = re.sub(r"[_-]+", " ", stem)
+    cleaned = re.sub(r"([a-z])([A-Z])", r"\1 \2", cleaned).strip()
+    return " ".join(w.capitalize() for w in cleaned.split()) if cleaned else norm
+
 
 @dataclass
 class AppTrafficStats:
@@ -47,6 +66,7 @@ class AppTrafficStats:
     @property
     def current_bps(self) -> float:
         return self.bps_history[-1] if self.bps_history else 0.0
+
 
 class AppRoutingManager:
     """
@@ -114,7 +134,7 @@ class AppRoutingManager:
                             key,
                             AppTrafficStats(
                                 app_name=key,
-                                display_name=TURBO_APP_LABEL if key == TURBO_APP_KEY else key,
+                                display_name=_default_friendly_label(key),
                             ),
                         )
         except FileNotFoundError:
@@ -133,7 +153,7 @@ class AppRoutingManager:
                     key,
                     AppTrafficStats(
                         app_name=key,
-                        display_name=TURBO_APP_LABEL if key == TURBO_APP_KEY else key,
+                        display_name=_default_friendly_label(key),
                     ),
                 )
             else:
@@ -180,7 +200,7 @@ class AppRoutingManager:
             if explicit_add:
                 self._user_added_apps.add(key)
             if key not in self._stats:
-                label = TURBO_APP_LABEL if key == TURBO_APP_KEY else key
+                label = _default_friendly_label(key)
                 self._stats[key] = AppTrafficStats(app_name=key, display_name=label)
         self.save_rules()
 
@@ -212,8 +232,9 @@ class AppRoutingManager:
 
     def sync_running_programs(self, detailed_procs: List[ProcessInfo]):
         """
-        Syncs detected running user programs so the router section automatically shows
-        programs that are actually running (plus any user-added/pinned programs).
+        Syncs detected running user programs and services so the router section
+        automatically shows all running applications and background services
+        (plus any user-added/pinned programs).
         """
         running_map = {p.exe_name: p for p in detailed_procs}
         with self._lock:
@@ -233,15 +254,20 @@ class AppRoutingManager:
                         st.window_title = pinfo.window_title
                     if pinfo.full_path:
                         st.full_path = pinfo.full_path
+                    if getattr(pinfo, "display_name", ""):
+                        st.display_name = pinfo.display_name
+                    else:
+                        st.display_name = _default_friendly_label(key, st.window_title)
                 else:
                     st.is_running = False
 
-            # Track every running process so All and Services can include background processes.
+            # Track every running process so All, Apps, and Services include all detected processes.
             for p in detailed_procs:
+                friendly = getattr(p, "display_name", "") or _default_friendly_label(p.exe_name, p.window_title)
                 if p.exe_name not in self._stats:
                     self._stats[p.exe_name] = AppTrafficStats(
                         app_name=p.exe_name,
-                        display_name=p.exe_name,
+                        display_name=friendly,
                         last_pid=p.pid,
                         is_running=True,
                         category=p.category,
@@ -257,7 +283,7 @@ class AppRoutingManager:
         with self._lock:
             st = self._stats.get(key)
             if not st:
-                label = TURBO_APP_LABEL if key == TURBO_APP_KEY else key
+                label = _default_friendly_label(key)
                 st = AppTrafficStats(app_name=key, display_name=label, is_running=True)
                 self._stats[key] = st
             if pid > 0:
@@ -284,7 +310,7 @@ class AppRoutingManager:
         with self._lock:
             st = self._stats.get(key)
             if not st:
-                st = AppTrafficStats(app_name=key, display_name=key)
+                st = AppTrafficStats(app_name=key, display_name=_default_friendly_label(key))
                 self._stats[key] = st
             st.last_pid = pid
             st.is_running = True
@@ -336,7 +362,14 @@ class AppRoutingManager:
                 if only_running_or_added and not (is_builtin or is_running or is_user_added or is_favorite or has_traffic):
                     continue
 
-                label = TURBO_APP_LABEL if is_builtin else key
+                w_title = st.window_title if st else ""
+                if is_builtin:
+                    label = TURBO_APP_LABEL
+                elif st and st.display_name and st.display_name != key:
+                    label = st.display_name
+                else:
+                    label = _default_friendly_label(key, w_title)
+
                 rows.append({
                     "app_name": key,
                     "display_name": label,
@@ -352,7 +385,7 @@ class AppRoutingManager:
                     "has_active_socket": st.has_active_socket if st else False,
                     "is_user_added": is_user_added,
                     "is_favorite": is_favorite,
-                    "window_title": st.window_title if st else "",
+                    "window_title": w_title,
                     "bps": round(st.current_bps, 1) if st else 0.0,
                     "bps_history": [round(x, 1) for x in st.bps_history[-30:]] if st else [0.0] * 30,
                 })
@@ -364,7 +397,7 @@ class AppRoutingManager:
                     0 if r["bps"] > 0 else 1,
                     -r["bytes_transferred"],
                     0 if r["is_running"] else 1,
-                    r["app_name"],
+                    r["display_name"].casefold(),
                 )
             )
             return rows
