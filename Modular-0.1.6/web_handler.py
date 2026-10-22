@@ -8,15 +8,63 @@ from __future__ import annotations
 from http.server import BaseHTTPRequestHandler
 import json
 import os
+import subprocess
 import threading
 import time
 import urllib.parse
 from typing import Dict, TYPE_CHECKING
 
+from config import IS_WINDOWS, filedialog, tk
 from web_ui_html import WEB_UI_HTML
 
 if TYPE_CHECKING:
     from engine import OmniBondEngine
+
+
+def _open_native_exe_file_dialog() -> str:
+    """Opens a native OS file picker dialog to select an executable (.exe) file."""
+    if IS_WINDOWS:
+        try:
+            ps_script = (
+                "Add-Type -AssemblyName System.Windows.Forms; "
+                "$f = New-Object System.Windows.Forms.OpenFileDialog; "
+                "$f.Title = 'Select Application Executable'; "
+                "$f.Filter = 'Executable Programs (*.exe)|*.exe|All Files (*.*)|*.*'; "
+                "if ($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $f.FileName }"
+            )
+            proc = subprocess.run(
+                ["powershell", "-NoProfile", "-STA", "-Command", ps_script],
+                capture_output=True,
+                text=True,
+                timeout=120.0,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            chosen = (proc.stdout or "").strip()
+            if chosen and os.path.isfile(chosen):
+                return chosen
+            if proc.returncode == 0:
+                return ""
+        except Exception:
+            pass
+
+    if tk is not None and filedialog is not None:
+        try:
+            temp_root = tk.Tk()
+            temp_root.withdraw()
+            temp_root.attributes("-topmost", True)
+            try:
+                chosen = filedialog.askopenfilename(
+                    parent=temp_root,
+                    title="Select Application Executable",
+                    filetypes=[("Executable Programs", "*.exe"), ("All Files", "*.*")],
+                )
+            finally:
+                temp_root.destroy()
+            return (chosen or "").strip()
+        except Exception:
+            pass
+    return ""
+
 
 class WebUIHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
@@ -64,6 +112,18 @@ class WebUIHandler(BaseHTTPRequestHandler):
         if self.path == "/api/rules":
             engine.routing_mgr.set_rule(data.get("app_name", ""), data.get("rule", "AUTO"), explicit_add=True)
             self._send_json({"ok": True})
+        elif self.path == "/api/browse_exe":
+            chosen_path = _open_native_exe_file_dialog()
+            if not chosen_path:
+                self._send_json({"ok": False, "cancelled": True})
+                return
+            exe_key = engine.process_mapper.register_custom_exe_path(chosen_path)
+            app_name = exe_key or os.path.basename(chosen_path).lower()
+            self._send_json({
+                "ok": True,
+                "app_name": app_name,
+                "location": os.path.abspath(chosen_path),
+            })
         elif self.path == "/api/favorite":
             app_name = str(data.get("app_name", "")).strip()
             if not app_name:

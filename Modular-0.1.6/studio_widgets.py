@@ -5,6 +5,7 @@ OmniBond - Custom Dark Studio UI Components: Hover Tooltips, Scrollbars & Dropdo
 
 from __future__ import annotations
 
+import time
 from typing import Callable, Dict, List, Optional, Tuple
 
 from config import _TkFrameBase, tk
@@ -31,6 +32,10 @@ class StudioTooltip:
         self._mouse_x: int = 0
         self._mouse_y: int = 0
 
+    def update_cursor(self, x_root: int, y_root: int):
+        self._mouse_x = int(x_root)
+        self._mouse_y = int(y_root)
+
     def bind_widget(self, widget: tk.Widget, title: str, description: str, delay_ms: int = 420):
         full_text = f"{title}\n{description}" if description else title
 
@@ -51,7 +56,16 @@ class StudioTooltip:
         widget.bind("<Leave>", on_leave, add="+")
         widget.bind("<ButtonPress>", on_leave, add="+")
 
-    def schedule(self, text: str, delay_ms: int = 420):
+    def schedule(
+        self,
+        text: str,
+        delay_ms: int = 420,
+        x_root: Optional[int] = None,
+        y_root: Optional[int] = None,
+    ):
+        if x_root is not None and y_root is not None:
+            self._mouse_x = int(x_root)
+            self._mouse_y = int(y_root)
         if text == self._current_text and self._tip_win is not None:
             return
         self.hide()
@@ -62,6 +76,12 @@ class StudioTooltip:
         if not self._current_text:
             return
         try:
+            ptr_x = self.root.winfo_pointerx()
+            ptr_y = self.root.winfo_pointery()
+            if ptr_x > 0 or ptr_y > 0:
+                self._mouse_x = ptr_x
+                self._mouse_y = ptr_y
+
             win = tk.Toplevel(self.root)
             win.wm_overrideredirect(True)
             win.attributes("-topmost", True)
@@ -93,8 +113,18 @@ class StudioTooltip:
                     wraplength=310,
                 ).pack(anchor="w", pady=(2, 0))
 
-            x = min(self.root.winfo_screenwidth() - 340, self._mouse_x + 14)
-            y = min(self.root.winfo_screenheight() - 90, self._mouse_y + 18)
+            win.update_idletasks()
+            tip_w = max(180, win.winfo_reqwidth())
+            tip_h = max(44, win.winfo_reqheight())
+            screen_w = self.root.winfo_screenwidth()
+            screen_h = self.root.winfo_screenheight()
+
+            x = self._mouse_x + 14
+            y = self._mouse_y + 18
+            if x + tip_w > screen_w - 12:
+                x = max(10, self._mouse_x - tip_w - 10)
+            if y + tip_h > screen_h - 40:
+                y = max(10, self._mouse_y - tip_h - 10)
             win.wm_geometry(f"+{max(10, x)}+{max(10, y)}")
             self._tip_win = win
         except Exception:
@@ -211,7 +241,7 @@ class StudioScrollbar(_TkCanvasBase):
     def _on_press(self, event):
         if not self.command:
             return
-        total = max(1, self.winfo_height() if self.orient == tk.VERTICAL else self.winfo_width())
+        total = max(1, self.winfo_height() if self.orient == getattr(tk, "VERTICAL", "vertical") else self.winfo_width())
         coord = event.y if self.orient == getattr(tk, "VERTICAL", "vertical") else event.x
         t0 = self._first * total
         t1 = self._last * total
@@ -227,7 +257,7 @@ class StudioScrollbar(_TkCanvasBase):
     def _on_drag(self, event):
         if not self._dragging or not self.command:
             return
-        total = max(1, self.winfo_height() if self.orient == tk.VERTICAL else self.winfo_width())
+        total = max(1, self.winfo_height() if self.orient == getattr(tk, "VERTICAL", "vertical") else self.winfo_width())
         coord = event.y if self.orient == getattr(tk, "VERTICAL", "vertical") else event.x
         delta = (coord - self._drag_start_coord) / total
         span = self._last - self._first
@@ -242,10 +272,7 @@ class StudioScrollbar(_TkCanvasBase):
 class StudioDropdown(_TkFrameBase):
     """
     Custom Dark-Mode Dropdown Selector that matches the Web UI's .styled-select-trigger & .styled-select-menu.
-    Supports:
-    - Compact mode (clean single-label options without overlapping badges/meta)
-    - Rich searchable mode (with Live Search & Category Filter Tabs for Add Program)
-    - Global outside-click dismissal across root and modal Toplevel dialogs
+    Uses color shift on hover instead of bright outlines, and cleanly toggles closed when re-clicked.
     """
 
     _active_dropdown: Optional["StudioDropdown"] = None
@@ -279,6 +306,7 @@ class StudioDropdown(_TkFrameBase):
         self._selected_label: str = placeholder
         self._popup: Optional[tk.Toplevel] = None
         self._active_category: str = "ALL"
+        self._closed_at: float = 0.0
 
         self.lbl_text = tk.Label(
             self,
@@ -337,14 +365,14 @@ class StudioDropdown(_TkFrameBase):
         active._close_popup()
 
     def _on_hover_enter(self, _e):
-        self.configure(bg="#1f1f2a", highlightbackground="#f59e0b")
-        self.lbl_text.configure(bg="#1f1f2a")
-        self.lbl_arrow.configure(bg="#1f1f2a")
+        self.configure(bg="#232332", highlightbackground="#2e2e3d")
+        self.lbl_text.configure(bg="#232332", fg="#ffffff")
+        self.lbl_arrow.configure(bg="#232332")
 
     def _on_hover_leave(self, _e):
         if not self._popup:
             self.configure(bg="#14141b", highlightbackground="#272732")
-            self.lbl_text.configure(bg="#14141b")
+            self.lbl_text.configure(bg="#14141b", fg="#fafafa")
             self.lbl_arrow.configure(bg="#14141b")
 
     def set_items(self, items: List[Dict[str, str]]):
@@ -368,7 +396,9 @@ class StudioDropdown(_TkFrameBase):
     def _toggle_popup(self, _event=None):
         if self._popup and self._popup.winfo_exists():
             self._close_popup()
-            return
+            return "break"
+        if (time.monotonic() - self._closed_at) < 0.15:
+            return "break"
         self._open_popup()
         return "break"
 
@@ -376,6 +406,7 @@ class StudioDropdown(_TkFrameBase):
         if StudioDropdown._active_dropdown is self:
             StudioDropdown._active_dropdown = None
         if self._popup:
+            self._closed_at = time.monotonic()
             try:
                 self._popup.destroy()
             except Exception:
@@ -384,7 +415,7 @@ class StudioDropdown(_TkFrameBase):
         try:
             if self.winfo_exists():
                 self.configure(bg="#14141b", highlightbackground="#272732")
-                self.lbl_text.configure(bg="#14141b")
+                self.lbl_text.configure(bg="#14141b", fg="#fafafa")
                 self.lbl_arrow.configure(bg="#14141b", text="▾")
         except Exception:
             pass
@@ -394,13 +425,14 @@ class StudioDropdown(_TkFrameBase):
             StudioDropdown._active_dropdown._close_popup()
         StudioDropdown._active_dropdown = self
 
-        self.lbl_arrow.configure(text="▴")
-        self.configure(highlightbackground="#f59e0b")
+        self.lbl_arrow.configure(text="▴", bg="#232332")
+        self.lbl_text.configure(bg="#232332", fg="#ffffff")
+        self.configure(bg="#232332", highlightbackground="#343446")
 
         pop = tk.Toplevel(self.root)
         pop.wm_overrideredirect(True)
         pop.attributes("-topmost", True)
-        pop.configure(bg="#3a3a46")
+        pop.configure(bg="#30303b")
         self._popup = pop
 
         has_rich_rows = bool(self.categories) or any(it.get("badge") or it.get("meta") for it in self._items)
@@ -414,7 +446,7 @@ class StudioDropdown(_TkFrameBase):
         else:
             max_lbl_len = max((len(it.get("label", "")) for it in self._items), default=14)
             pop_w = max(self.width_px, max_lbl_len * 7 + 28)
-            pop_h = min(240, max(64, len(self._items) * row_h + 10))
+            pop_h = min(260, max(64, len(self._items) * row_h + 10))
 
         rx = self.winfo_rootx()
         ry = self.winfo_rooty() + self.winfo_height() + 3
@@ -490,7 +522,7 @@ class StudioDropdown(_TkFrameBase):
         cv = tk.Canvas(list_wrap, bg="#101016", highlightthickness=0, bd=0)
         vscroll = StudioScrollbar(
             list_wrap,
-            orient=tk.VERTICAL,
+            orient=getattr(tk, "VERTICAL", "vertical"),
             command=cv.yview,
             thickness=6,
             track_bg="#101016",

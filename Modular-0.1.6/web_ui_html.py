@@ -39,6 +39,11 @@ WEB_UI_HTML = """<!DOCTYPE html>
     gap: 1px;
   }
 
+  @keyframes topbarGreenFlow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
   .topbar {
     background: var(--panel);
     padding: 13px 20px;
@@ -47,6 +52,12 @@ WEB_UI_HTML = """<!DOCTYPE html>
     align-items: center;
     flex-wrap: wrap;
     gap: 12px;
+    transition: background 0.3s ease;
+  }
+  .topbar.bonding-active {
+    background: linear-gradient(110deg, #0c0c0f 0%, #062b1f 25%, #0e523a 50%, #062b1f 75%, #0c0c0f 100%);
+    background-size: 260% 260%;
+    animation: topbarGreenFlow 5s ease infinite;
   }
   .brand-row { display: flex; align-items: center; gap: 12px; }
   .ob-badge {
@@ -66,21 +77,23 @@ WEB_UI_HTML = """<!DOCTYPE html>
   .top-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
   .btn {
-    background: #14141b;
+    background-color: #14141b;
     color: var(--text);
     border: 1px solid #272732;
     padding: 8px 14px;
     font-size: 12px;
     font-weight: 700;
     cursor: pointer;
-    transition: all 0.14s ease;
+    transition: background-color 0.15s ease, color 0.15s ease, transform 0.14s ease;
     position: relative;
   }
-  .btn:hover { background: #1f1f2a; border-color: var(--amber); transform: translateY(-1px); }
-  .btn.primary { background: #fafafa; color: #09090b; border-color: #fafafa; }
-  .btn.primary:hover { background: var(--amber); border-color: var(--amber); }
-  .btn.amber { background: var(--amber); color: #09090b; border-color: var(--amber); }
-  .btn.active { color: var(--amber); border-color: var(--amber); }
+  .btn:hover { background-color: #252536; color: #ffffff; border-color: #272732; transform: translateY(-1px); }
+  .btn.primary { background-color: #fafafa; color: #09090b; border-color: #fafafa; }
+  .btn.primary:hover { background-color: #f59e0b; color: #09090b; border-color: #f59e0b; }
+  .btn.amber { background-color: #f59e0b; color: #09090b; border-color: #f59e0b; }
+  .btn.amber:hover { background-color: #fbbf24; color: #09090b; border-color: #fbbf24; }
+  .btn.active { background-color: #1c1912; color: var(--amber); border-color: #3a301a; }
+  .btn.active:hover { background-color: #292315; color: #fbbf24; border-color: #3a301a; }
 
   .workspace-grid {
     display: grid;
@@ -235,16 +248,19 @@ WEB_UI_HTML = """<!DOCTYPE html>
     border: 1px solid #30303b;
     text-transform: uppercase;
   }
-  .focus-link:hover, .app-card-controls .card-btn:hover {
-    background: #1c1c27;
-    border-color: var(--amber);
+  .focus-link:hover, .app-card-controls .card-btn:hover, .favorite-btn:hover {
+    background-color: #252536;
+    color: #ffffff;
+    border-color: #30303b;
   }
   .favorite-btn {
     color: var(--text);
     background: #121218;
     border: 1px solid #30303b;
+    transition: background-color 0.14s ease, color 0.14s ease;
   }
-  .favorite-btn.active { color: var(--amber); border-color: var(--amber); }
+  .favorite-btn.active { background-color: #1f1b12; color: var(--amber); border-color: #30303b; }
+  .favorite-btn.active:hover { background-color: #2b2416; color: #fbbf24; border-color: #30303b; }
 
   /* Issue 5: Safe space & clean truncation for application names inside card containers */
   .card-identity {
@@ -363,7 +379,7 @@ WEB_UI_HTML = """<!DOCTYPE html>
     text-transform: uppercase;
     cursor: pointer;
   }
-  .card-btn:hover, .styled-select-trigger:hover { border-color: var(--amber); background-color: #14141c; }
+  .card-btn:hover, .styled-select-trigger:hover { border-color: #272732; background-color: #242434; color: #ffffff; }
   .styled-select-wrap {
     position:relative;
     display:inline-flex;
@@ -404,13 +420,12 @@ WEB_UI_HTML = """<!DOCTYPE html>
   }
   .styled-select-wrap.card-select-wrap .styled-select-trigger:hover,
   .styled-select-wrap.card-select-wrap.open .styled-select-trigger {
-    background-color:#12121a;
-    border-color:#3a3a48;
+    background-color:#191926;
+    border-color:#22222c;
     box-shadow:none;
   }
-  .styled-select-wrap.filter-select-wrap { flex:0 0 136px; height:31px; }
+  .styled-select-wrap.filter-select-wrap { flex:0 0 156px; height:31px; }
   .styled-select-wrap.sort-select-wrap { flex:0 0 148px; height:31px; margin-left:0; }
-  .styled-select-wrap.color-select-wrap { flex:0 0 152px; height:31px; margin-left:0; }
   .styled-select-wrap.limit-unit-select-wrap { flex:0 0 74px; }
   .styled-select-trigger-label {
     min-width:0;
@@ -486,7 +501,30 @@ WEB_UI_HTML = """<!DOCTYPE html>
     flex-wrap: wrap;
     gap: 8px;
     align-items: center;
-    background: #08080b;
+    background: var(--panel);
+  }
+  .locate-file-row { display:flex; gap:8px; align-items:center; }
+  .locate-file-row input { flex:1; }
+  .locate-file-row .btn { flex:0 0 auto; height:36px; padding:0 12px; display:inline-flex; align-items:center; }
+  .studio-floating-tooltip {
+    position:fixed;
+    z-index:2000;
+    pointer-events:none;
+    display:none;
+    max-width:320px;
+    background:#101016;
+    border:1px solid #30303b;
+    padding:7px 10px;
+    box-shadow:0 10px 26px rgba(0,0,0,.55);
+    font:700 10px Consolas,monospace;
+    color:#f59e0b;
+    line-height:1.45;
+  }
+  .studio-floating-tooltip small {
+    display:block;
+    margin-top:2px;
+    font:400 11px 'Segoe UI',system-ui,sans-serif;
+    color:#d4d4d8;
   }
   .router-tool-group { display:flex; min-width:0; align-items:center; flex-wrap:wrap; gap:6px; }
   .router-tool-group:first-child { flex:1 1 auto; flex-wrap:nowrap; }
@@ -769,30 +807,19 @@ WEB_UI_HTML = """<!DOCTYPE html>
             <option value="APPS">Apps</option>
             <option value="SERVICES">Services</option>
             <option value="FAVORITES">Favorites</option>
+            <option value="MODIFIED">Modified bonding</option>
+            <option value="UNMODIFIED">Default bonding</option>
           </select>
-          <div class="view-switch">
-            <button class="btn active" id="gridViewBtn" onclick="setAppView('grid')">▦ Grid</button>
-            <button class="btn" id="listViewBtn" onclick="setAppView('list')">☷ List</button>
-          </div>
           <select class="sort-select" id="appSortSelect" aria-label="Sort applications" title="Sort apps by name or current network speed" onchange="setAppSort(this.value)">
             <option value="AZ">Name: A-Z</option>
             <option value="ZA">Name: Z-A</option>
             <option value="FAST">Speed: High–Low</option>
             <option value="SLOW">Speed: Low–High</option>
           </select>
-          <select class="color-select" id="appColorSelect" aria-label="Application card color palette" title="Choose the accent color palette for application cards" onchange="setAppColorTheme(this.value)">
-            <option value="MULTI">Palette: Multi (16)</option>
-            <option value="CYAN">Theme: Sky Cyan</option>
-            <option value="ORANGE">Theme: Sunset Orange</option>
-            <option value="EMERALD">Theme: Emerald Mint</option>
-            <option value="VIOLET">Theme: Royal Violet</option>
-            <option value="AMBER">Theme: Amber Gold</option>
-            <option value="ROSE">Theme: Rose Neon</option>
-            <option value="CORAL">Theme: Coral Red</option>
-            <option value="TEAL">Theme: Cyber Teal</option>
-            <option value="INDIGO">Theme: Indigo Pulse</option>
-            <option value="LIME">Theme: Lime Matrix</option>
-          </select>
+          <div class="view-switch">
+            <button class="btn active" id="gridViewBtn" onclick="setAppView('grid')">▦ Grid</button>
+            <button class="btn" id="listViewBtn" onclick="setAppView('list')">☷ List</button>
+          </div>
         </div>
         <div class="router-tool-group">
           <button class="btn" title="Scan running applications" onclick="loadRunningApps()">⌕ Scan</button>
@@ -812,8 +839,12 @@ WEB_UI_HTML = """<!DOCTYPE html>
         <select id="addAppSelect"></select>
       </div>
       <div class="modal-field">
-        <label for="customAppName">Or enter an executable name</label>
-        <input id="customAppName" type="text" placeholder="e.g. game.exe">
+        <label for="customAppName">Or enter / locate an executable file</label>
+        <div class="locate-file-row">
+          <input id="customAppName" type="text" placeholder="e.g. game.exe">
+          <button type="button" class="btn" title="Browse and select an executable file on disk" onclick="browseAppExecutable()">📂 Locate File</button>
+          <input id="customAppFilePicker" type="file" accept=".exe,*/*" style="display:none" onchange="onCustomAppFilePicked(this)">
+        </div>
       </div>
       <div class="modal-field">
         <label for="addPolicySelect">Network policy</label>
@@ -869,6 +900,7 @@ WEB_UI_HTML = """<!DOCTYPE html>
     </div>
   </div>
 
+  <div class="studio-floating-tooltip" id="studioTooltip" role="tooltip"></div>
   <!-- 03 PARALLEL DOWNLOAD ENGINE -->
   <div class="bottom-container">
     <div class="kicker">03 / PARALLEL RANGE &amp; HLS (.M3U8) ENGINE &middot; ENDGAME RACING</div>
@@ -897,37 +929,22 @@ let allProcesses = [];
 let currentFilter = 'ALL';
 let currentAppView = localStorage.getItem('omnibond-app-view') || 'grid';
 let currentAppSort = localStorage.getItem('omnibond-app-sort') || 'AZ';
-let currentAppColorTheme = localStorage.getItem('omnibond-app-color') || 'MULTI';
-let hideIps = localStorage.getItem('omnibond-hide-ips') === 'true';
+let hideIps = localStorage.getItem('omnibond-hide-ips') !== 'false';
 let graphMode = localStorage.getItem('omnibond-graph-mode') === 'bonded' ? 'bonded' : 'master';
 let peakTotalBps = 0;
 let renderedAppStructure = '';
 document.getElementById('appSortSelect').value = currentAppSort;
-document.getElementById('appColorSelect').value = currentAppColorTheme;
 
 const APP_PALETTE_COLORS = [
   '#38bdf8', '#fb923c', '#34d399', '#a78bfa',
   '#facc15', '#f472b6', '#f87171', '#2dd4bf',
   '#818cf8', '#a3e635', '#e879f9', '#fb7185',
-  '#60a5fa', '#fdba74', '#6ee7b7', '#fde047'
+  '#60a5fa', '#fdba74', '#6ee7b7', '#fde047',
+  '#22d3ee', '#c084fc', '#4ade80', '#f97316',
+  '#f43f5e', '#14b8a6', '#eab308', '#ec4899'
 ];
-const APP_THEME_MAP = {
-  CYAN: '#38bdf8',
-  ORANGE: '#fb923c',
-  EMERALD: '#34d399',
-  VIOLET: '#a78bfa',
-  AMBER: '#facc15',
-  ROSE: '#f472b6',
-  CORAL: '#f87171',
-  TEAL: '#2dd4bf',
-  INDIGO: '#818cf8',
-  LIME: '#a3e635'
-};
 
 function getAppAccentColor(idx) {
-  if (currentAppColorTheme !== 'MULTI' && APP_THEME_MAP[currentAppColorTheme]) {
-    return APP_THEME_MAP[currentAppColorTheme];
-  }
   return APP_PALETTE_COLORS[idx % APP_PALETTE_COLORS.length];
 }
 
@@ -1038,14 +1055,17 @@ function positionStyledSelect(wrap) {
   const menu = wrap._styledMenu;
   if (!trigger || !menu) return;
   const rect = trigger.getBoundingClientRect();
+  menu.style.left = '0px';
+  menu.style.top = '0px';
   menu.style.minWidth = `${Math.min(Math.max(160, rect.width), window.innerWidth - 16)}px`;
   menu.style.maxWidth = `${Math.max(120, Math.min(360, window.innerWidth - 16))}px`;
   menu.style.maxHeight = `${Math.max(100, Math.min(280, window.innerHeight - 16))}px`;
+  const menuWidth = menu.offsetWidth || rect.width;
   const menuHeight = Math.min(menu.scrollHeight, Math.max(100, Math.min(280, window.innerHeight - 16)));
   const below = window.innerHeight - rect.bottom - 8;
   const above = rect.top - 8;
   const placeAbove = below < Math.min(menuHeight, 150) && above > below;
-  const left = Math.max(8, Math.min(rect.left, window.innerWidth - menu.offsetWidth - 8));
+  const left = Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8));
   const top = placeAbove
     ? Math.max(8, rect.top - menuHeight - 4)
     : Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - menuHeight - 8));
@@ -1101,8 +1121,15 @@ function syncStyledSelect(select) {
     wrap.insertBefore(trigger, select);
     wrap._styledTrigger = trigger;
     wrap._styledLabel = trigger.querySelector('.styled-select-trigger-label');
-    trigger.addEventListener('click', () => {
-      if (wrap.classList.contains('open')) {
+    trigger.addEventListener('pointerdown', event => {
+      event.stopPropagation();
+      wrap._wasOpenOnPointerDown = wrap.classList.contains('open');
+    });
+    trigger.addEventListener('click', event => {
+      event.stopPropagation();
+      const shouldClose = wrap.classList.contains('open') || wrap._wasOpenOnPointerDown;
+      wrap._wasOpenOnPointerDown = false;
+      if (shouldClose) {
         closeStyledSelects();
         return;
       }
@@ -1140,7 +1167,7 @@ function syncStyledSelect(select) {
       trigger.setAttribute('aria-expanded', 'true');
       positionStyledSelect(wrap);
       const selected = menu.querySelector('[aria-selected="true"]:not(:disabled)');
-      selected?.focus();
+      selected?.focus({ preventScroll: true });
       positionStyledSelect(wrap);
     });
     trigger.addEventListener('keydown', event => {
@@ -1366,15 +1393,34 @@ function matchesCurrentAppFilter(app) {
     return app.is_running && ['SERVICES / BG', 'ACTIVE NET'].includes(app.category);
   }
   if (currentFilter === 'FAVORITES') return app.is_favorite;
+  if (currentFilter === 'MODIFIED') return Boolean(app.rule && app.rule !== 'AUTO');
+  if (currentFilter === 'UNMODIFIED') return !app.rule || app.rule === 'AUTO';
   return true;
+}
+
+function traceSmoothCatmullRom(ctx, pts, minY, maxY) {
+  if (!pts.length) return;
+  ctx.moveTo(pts[0].x, pts[0].y);
+  const tension = 0.28;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const cp1x = p1.x + (p2.x - p0.x) * tension;
+    const cp1y = Math.max(minY, Math.min(maxY, p1.y + (p2.y - p0.y) * tension));
+    const cp2x = p2.x - (p3.x - p1.x) * tension;
+    const cp2y = Math.max(minY, Math.min(maxY, p2.y - (p3.y - p1.y) * tension));
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+  }
 }
 
 function drawSparkline(canvas, history, color) {
   if (!canvas || !history || history.length < 2) return;
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = Math.max(2, window.devicePixelRatio || 1);
   const rect = canvas.getBoundingClientRect();
   const cssW = Math.max(120, rect.width || canvas.width || 190);
-  const cssH = Math.max(24, rect.height || canvas.height || 32);
+  const cssH = Math.max(26, rect.height || canvas.height || 32);
   if (canvas.width !== Math.floor(cssW * dpr) || canvas.height !== Math.floor(cssH * dpr)) {
     canvas.width = Math.floor(cssW * dpr);
     canvas.height = Math.floor(cssH * dpr);
@@ -1382,6 +1428,8 @@ function drawSparkline(canvas, history, color) {
   const ctx = canvas.getContext('2d');
   ctx.save();
   ctx.scale(dpr, dpr);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   const w = cssW;
   const h = cssH;
   ctx.clearRect(0, 0, w, h);
@@ -1389,35 +1437,35 @@ function drawSparkline(canvas, history, color) {
   let maxV = 4096;
   for (const v of history) if (v * 1.18 > maxV) maxV = v * 1.18;
 
+  const minY = 3.5;
+  const maxY = h - 3.5;
   const pts = history.map((v, i) => ({
     x: (i / (history.length - 1)) * (w - 8) + 3,
-    y: h - 3 - Math.min(1, Math.max(0, v / maxV)) * (h - 7)
+    y: maxY - Math.min(1, Math.max(0, v / maxV)) * (maxY - minY)
   }));
 
   ctx.beginPath();
-  ctx.moveTo(pts[0].x, pts[0].y);
-  for (let i = 0; i < pts.length - 1; i++) {
-    const xc = (pts[i].x + pts[i + 1].x) / 2;
-    const yc = (pts[i].y + pts[i + 1].y) / 2;
-    ctx.quadraticCurveTo(pts[i].x, pts[i].y, xc, yc);
-  }
+  traceSmoothCatmullRom(ctx, pts, minY, maxY);
   const last = pts[pts.length - 1];
-  ctx.lineTo(last.x, last.y);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 1.7;
-  ctx.stroke();
-
-  ctx.lineTo(last.x, h - 2);
-  ctx.lineTo(pts[0].x, h - 2);
+  ctx.lineTo(last.x, h - 1.5);
+  ctx.lineTo(pts[0].x, h - 1.5);
   ctx.closePath();
-  const grad = ctx.createLinearGradient(0, 2, 0, h - 2);
-  grad.addColorStop(0, color + '3d');
-  grad.addColorStop(1, color + '05');
+  const grad = ctx.createLinearGradient(0, minY, 0, h - 1.5);
+  grad.addColorStop(0, color + '40');
+  grad.addColorStop(1, color + '02');
   ctx.fillStyle = grad;
   ctx.fill();
 
   ctx.beginPath();
-  ctx.arc(last.x, last.y, 2.3, 0, Math.PI * 2);
+  traceSmoothCatmullRom(ctx, pts, minY, maxY);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.85;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(last.x, last.y, 2.4, 0, Math.PI * 2);
   ctx.fillStyle = color;
   ctx.fill();
   ctx.restore();
@@ -1427,7 +1475,7 @@ function drawGoogleStyleChart(adapters) {
   const canvas = document.getElementById('telemetryChart');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = Math.max(2, window.devicePixelRatio || 1);
   const rect = canvas.getBoundingClientRect();
   if (canvas.width !== Math.floor(rect.width * dpr) || canvas.height !== Math.floor(rect.height * dpr)) {
     canvas.width = Math.floor(rect.width * dpr);
@@ -1435,10 +1483,13 @@ function drawGoogleStyleChart(adapters) {
   }
   ctx.save();
   ctx.scale(dpr, dpr);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
 
   const w = rect.width;
   const h = rect.height;
-  const padL = 62, padR = 16, padT = 10, padB = 22;
+  // Left-align Y-axis labels at x=0 (strictly flush with the 18px section padding)
+  const padL = 68, padR = 12, padT = 10, padB = 22;
   const plotW = Math.max(1, w - padL - padR);
   const plotH = Math.max(1, h - padT - padB);
 
@@ -1452,7 +1503,7 @@ function drawGoogleStyleChart(adapters) {
   }
 
   ctx.font = '10px Consolas, monospace';
-  ctx.textAlign = 'right';
+  ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   const rows = 4;
   for (let r = 0; r <= rows; r++) {
@@ -1465,7 +1516,7 @@ function drawGoogleStyleChart(adapters) {
     ctx.lineTo(w - padR, y);
     ctx.stroke();
     ctx.fillStyle = '#71717a';
-    ctx.fillText(val <= 1 ? '0 B/s' : fmtSpeed(val), padL - 8, y);
+    ctx.fillText(val <= 1 ? '0 B/s' : fmtSpeed(val), 0, y);
   }
   ctx.setLineDash([]);
 
@@ -1487,18 +1538,8 @@ function drawGoogleStyleChart(adapters) {
     }));
 
     ctx.beginPath();
-    ctx.moveTo(pts[0].x, pts[0].y);
-    for (let i = 0; i < pts.length - 1; i++) {
-      const xc = (pts[i].x + pts[i + 1].x) / 2;
-      const yc = (pts[i].y + pts[i + 1].y) / 2;
-      ctx.quadraticCurveTo(pts[i].x, pts[i].y, xc, yc);
-    }
+    traceSmoothCatmullRom(ctx, pts, padT, padT + plotH);
     const last = pts[pts.length - 1];
-    ctx.lineTo(last.x, last.y);
-    ctx.strokeStyle = a.color;
-    ctx.lineWidth = 2.2;
-    ctx.stroke();
-
     ctx.lineTo(last.x, padT + plotH);
     ctx.lineTo(pts[0].x, padT + plotH);
     ctx.closePath();
@@ -1507,6 +1548,14 @@ function drawGoogleStyleChart(adapters) {
     grad.addColorStop(1, a.color + '00');
     ctx.fillStyle = grad;
     ctx.fill();
+
+    ctx.beginPath();
+    traceSmoothCatmullRom(ctx, pts, padT, padT + plotH);
+    ctx.strokeStyle = a.color;
+    ctx.lineWidth = 2.2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
   });
 
   ctx.restore();
@@ -1528,6 +1577,7 @@ async function fetchState() {
     document.getElementById('liveTotalSpeed').textContent = fmtSpeed(totalBps);
     document.getElementById('peakTotalSpeed').textContent = fmtSpeed(peakTotalBps);
     document.getElementById('btnSysProxy').textContent = st.system_proxy ? '◈ Bonding: On' : '◈ Bonding: Off';
+    document.querySelector('.topbar')?.classList.toggle('bonding-active', Boolean(st.system_proxy));
     updateGraphModeButton();
     const adapterTelemetryStatus = graphMode === 'master'
       ? st.system_adapter_telemetry_status
@@ -1611,7 +1661,6 @@ async function fetchState() {
       currentFilter,
       currentAppView,
       currentAppSort,
-      currentAppColorTheme,
       hideIps,
       graphMode,
       visibleAppRules.map(r => r.app_name),
@@ -1810,10 +1859,35 @@ function showThemedDialog(title, message, options = {}) {
   });
 }
 
+async function browseAppExecutable() {
+  try {
+    const res = await fetch('/api/browse_exe', {method: 'POST'});
+    const data = await res.json();
+    if (data && data.ok && data.app_name) {
+      const input = document.getElementById('customAppName');
+      input.value = data.app_name;
+      input.dataset.fullLocation = data.location || '';
+      return;
+    }
+    if (data && data.cancelled) return;
+  } catch (_e) {}
+  document.getElementById('customAppFilePicker')?.click();
+}
+
+function onCustomAppFilePicked(fileInput) {
+  const file = fileInput?.files?.[0];
+  if (!file) return;
+  const input = document.getElementById('customAppName');
+  input.value = file.name.toLowerCase();
+  fileInput.value = '';
+}
+
 function openAddProgram() {
   closeStyledSelects();
   renderProcDropdown();
-  document.getElementById('customAppName').value = '';
+  const customInput = document.getElementById('customAppName');
+  customInput.value = '';
+  delete customInput.dataset.fullLocation;
   const modal = document.getElementById('addProgramModal');
   modal.classList.add('open');
   modal.onclick = event => {
@@ -2007,6 +2081,54 @@ async function startDownload() {
   });
   fetchState();
 }
+
+
+(function initStudioTooltip() {
+  const tip = document.getElementById('studioTooltip');
+  if (!tip) return;
+  let activeEl = null;
+  function positionTip(x, y) {
+    const pad = 12;
+    const tw = tip.offsetWidth || 220;
+    const th = tip.offsetHeight || 44;
+    let lx = x + 14;
+    let ly = y + 18;
+    if (lx + tw > window.innerWidth - pad) lx = Math.max(pad, x - tw - 10);
+    if (ly + th > window.innerHeight - pad) ly = Math.max(pad, y - th - 10);
+    tip.style.left = `${lx}px`;
+    tip.style.top = `${ly}px`;
+  }
+  document.addEventListener('mouseover', event => {
+    const el = event.target instanceof Element ? event.target.closest('[title], [data-studio-tip]') : null;
+    if (!el) {
+      activeEl = null;
+      tip.style.display = 'none';
+      return;
+    }
+    if (el.getAttribute('title')) {
+      el.setAttribute('data-studio-tip', el.getAttribute('title'));
+      el.removeAttribute('title');
+    }
+    const text = el.getAttribute('data-studio-tip');
+    if (!text) return;
+    activeEl = el;
+    tip.textContent = text;
+    tip.style.display = 'block';
+    positionTip(event.clientX, event.clientY);
+  });
+  document.addEventListener('mousemove', event => {
+    if (activeEl && tip.style.display === 'block') {
+      positionTip(event.clientX, event.clientY);
+    }
+  });
+  document.addEventListener('mouseout', event => {
+    if (activeEl && (!event.relatedTarget || !activeEl.contains(event.relatedTarget))) {
+      activeEl = null;
+      tip.style.display = 'none';
+    }
+  });
+  document.addEventListener('pointerdown', () => { tip.style.display = 'none'; }, true);
+})();
 
 syncStyledSelects();
 loadRunningApps();
