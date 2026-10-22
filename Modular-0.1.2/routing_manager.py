@@ -16,7 +16,6 @@ from typing import Dict, List, Set
 
 from config import (
     BLOCK_INTERNET_RULE,
-    FRIENDLY_APP_NAMES,
     RULES_FILE,
     TURBO_APP_KEY,
     TURBO_APP_LABEL,
@@ -33,11 +32,10 @@ def _default_friendly_label(app_key: str, window_title: str = "") -> str:
         return "System Process"
     if norm == TURBO_APP_KEY or "turbo" in norm:
         return TURBO_APP_LABEL
-    if window_title and "gemini" in window_title.lower():
-        base = FRIENDLY_APP_NAMES.get(norm, "")
-        return f"Gemini ({base})" if base and base != "Google Gemini" else "Google Gemini"
-    if norm in FRIENDLY_APP_NAMES:
-        return FRIENDLY_APP_NAMES[norm]
+    if window_title and window_title != "Windows Shell":
+        parts = [p.strip() for p in re.split(r"\s+[-—–|]\s+", window_title) if p.strip()]
+        if parts and len(parts[-1]) >= 3:
+            return parts[-1]
     stem = norm[:-4] if norm.endswith(".exe") else norm
     cleaned = re.sub(r"[_-]+", " ", stem)
     cleaned = re.sub(r"([a-z])([A-Z])", r"\1 \2", cleaned).strip()
@@ -238,7 +236,6 @@ class AppRoutingManager:
         """
         running_map = {p.exe_name: p for p in detailed_procs}
         with self._lock:
-            # Mark running status on existing stats
             for key, st in self._stats.items():
                 if key == TURBO_APP_KEY:
                     st.is_running = True
@@ -261,7 +258,6 @@ class AppRoutingManager:
                 else:
                     st.is_running = False
 
-            # Track every running process so All, Apps, and Services include all detected processes.
             for p in detailed_procs:
                 friendly = getattr(p, "display_name", "") or _default_friendly_label(p.exe_name, p.window_title)
                 if p.exe_name not in self._stats:

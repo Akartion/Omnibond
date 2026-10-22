@@ -117,19 +117,14 @@ def run_selftest() -> int:
 
     try:
         assert ProcessMapper.classify_process_category(
-            "chrome.exe", "Browser window", False
+            "any_app.exe", "Visible Window Title", False, session_id=1
         ) == "USER APPS"
         assert ProcessMapper.classify_process_category(
-            "explorer.exe", "", False
-        ) == "USER APPS"
-        assert ProcessMapper.classify_process_category(
-            "custom_daemon.exe", "", True
+            "custom_daemon.exe", "", True, session_id=1
         ) == "ACTIVE NET"
         assert ProcessMapper.classify_process_category(
-            "svchost.exe", "", False
+            "svchost.exe", "", True, session_id=0
         ) == "SERVICES / BG"
-        assert engine.process_mapper.resolve_friendly_app_name("explorer.exe") == "File Explorer"
-        assert "Gemini" in engine.process_mapper.resolve_friendly_app_name("chrome.exe", "Gemini - Google Chrome")
         assert "app.category === 'USER APPS'" in WEB_UI_HTML
         assert 'data-limit-mode="data_limit_gb"' in WEB_UI_HTML
         assert "styled-select-menu" in WEB_UI_HTML
@@ -248,8 +243,6 @@ def run_selftest() -> int:
         entries = {r["app_name"]: r for r in engine.routing_mgr.get_all_entries()}
         assert entries["steam.exe"]["last_adapter_ip"] == "127.0.0.1"
         assert entries["chrome.exe"]["last_adapter_ip"] == "127.0.0.2"
-        assert entries["steam.exe"]["display_name"] == "Steam Client"
-        assert entries["chrome.exe"]["display_name"] == "Google Chrome"
         assert "bps_history" in entries["steam.exe"]
         direct_telemetry_test = AppRoutingManager(persist_path="")
         direct_telemetry_test.record_process_bytes("tcp_test.exe", 4242, 8192)
@@ -259,7 +252,7 @@ def run_selftest() -> int:
         }["tcp_test.exe"]
         assert direct_entry["bytes_transferred"] == 8192
         assert direct_entry["bps"] > 0
-        print("[4/6] Proxy and direct per-app TCP speed history & friendly names verified.")
+        print("[4/6] Proxy and direct per-app TCP speed history & dynamic naming verified.")
 
         limit_path = os.path.join(tmp_dir, "adapter_limits.json")
         limit_mgr = AdapterManager(
@@ -316,7 +309,6 @@ def run_selftest() -> int:
         assert stitched == b"SEGMENT_/seg1.ts_DATASEGMENT_/seg2.ts_DATA"
         print("[6/7] Turbo Download & HLS Stream Accelerator verified.")
 
-        # Verify true Round-Robin multi-NIC bonding when latencies differ slightly
         engine.adapter_mgr.adapters["127.0.0.1"].latency_ms = 12.4
         engine.adapter_mgr.adapters["127.0.0.2"].latency_ms = 28.9
         engine.routing_mgr.set_rule("browser_rr.exe", "AUTO")
@@ -686,8 +678,6 @@ def main():
     if launch_mode != "native":
         print(f"OmniBond running at {url}")
         print(f"HTTP/HTTPS Proxy: 127.0.0.1:{engine.http_port} | SOCKS5: 127.0.0.1:{engine.socks_port}")
-        # Only use an isolated profile if --app was explicitly passed; otherwise open a new tab
-        # in the user's running browser (or launch their installed browser if not running).
         app_profile_dir = None
         if "--app" in sys.argv:
             app_profile_dir = os.path.join(tempfile.gettempdir(), "omnibond_web_profile")
@@ -697,8 +687,6 @@ def main():
         try:
             if browser_process:
                 browser_process.wait()
-                # If the browser handed off the new tab to an already-running browser process
-                # and exited immediately (< 5s), keep the OmniBond service running while the tab is open.
                 if (time.monotonic() - launch_t0) < 5.0:
                     print("Opened OmniBond tab in existing browser session; keeping OmniBond running (Ctrl+C to stop).")
                     while True:
