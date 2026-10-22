@@ -169,6 +169,25 @@ if IS_WINDOWS:
             wintypes.DWORD,
         ]
         _dwm.DwmGetWindowAttribute.restype = ctypes.c_long
+
+        _sh32 = ctypes.windll.shell32
+        _sh32.SHParseDisplayName.argtypes = [
+            wintypes.LPCWSTR,
+            ctypes.c_void_p,
+            ctypes.POINTER(ctypes.c_void_p),
+            wintypes.ULONG,
+            ctypes.POINTER(wintypes.ULONG),
+        ]
+        _sh32.SHParseDisplayName.restype = ctypes.c_long
+        _sh32.SHOpenFolderAndSelectItems.argtypes = [
+            ctypes.c_void_p,
+            wintypes.UINT,
+            ctypes.POINTER(ctypes.c_void_p),
+            wintypes.DWORD,
+        ]
+        _sh32.SHOpenFolderAndSelectItems.restype = ctypes.c_long
+        _sh32.ILFree.argtypes = [ctypes.c_void_p]
+        _sh32.ILFree.restype = None
     except Exception:
         pass
 
@@ -413,6 +432,24 @@ class ProcessMapper:
                 return subject
         return cleaned
 
+    def _find_system_binary_path(self, exe_name: str) -> str:
+        """Checks standard Windows system directories for an OS binary if OpenProcess was restricted."""
+        norm = os.path.basename((exe_name or "").strip().lower())
+        if not IS_WINDOWS or not norm:
+            return ""
+        sys_root = os.environ.get("SystemRoot", r"C:\Windows")
+        for folder in (
+            os.path.join(sys_root, "System32"),
+            sys_root,
+            os.path.join(sys_root, "SysWOW64"),
+        ):
+            cand = os.path.join(folder, norm)
+            if os.path.isfile(cand):
+                with self._lock:
+                    self._exe_path_map.setdefault(norm, cand)
+                return cand
+        return ""
+
     def resolve_friendly_app_name(
         self, exe_name: str, window_title: str = "", full_path: str = ""
     ) -> str:
@@ -431,13 +468,7 @@ class ProcessMapper:
 
         path_to_check = full_path or self._exe_path_map.get(norm, "")
         if not path_to_check and IS_WINDOWS:
-            # Check standard System32 / Windows paths for OS binaries if PID path wasn't cached yet
-            sys_root = os.environ.get("SystemRoot", r"C:\Windows")
-            for folder in (sys_root, os.path.join(sys_root, "System32")):
-                cand = os.path.join(folder, norm)
-                if os.path.isfile(cand):
-                    path_to_check = cand
-                    break
+            path_to_check = self._find_system_binary_path(norm)
 
         pe_desc = self._get_pe_file_description(path_to_check)
         svc_desc = "" if pe_desc else self._get_windows_service_display_name(norm)
@@ -585,12 +616,30 @@ class ProcessMapper:
             pass
         return 0
 
+    @staticmethod
+    def _normalize_windows_fs_path(raw_path: str) -> str:
+        """
+        Normalizes Win32/NT image paths (such as '\\?\\C:\\...' or '\\SystemRoot\\...')
+        into standard Win32 drive-letter paths that Windows Explorer and os.path.exists accept.
+        """
+        p = (raw_path or "").strip().strip('"')
+        if not p:
+            return ""
+        if p.startswith("\\\\?\\"):
+            p = p[4:]
+        elif p.lower().startswith("\\systemroot\\"):
+            sys_root = os.environ.get("SystemRoot", r"C:\Windows")
+            p = os.path.join(sys_root, p[12:])
+        elif p.startswith("\\??\\"):
+            p = p[4:]
+        return os.path.normpath(p)
+
     def get_exe_info(self, pid: int) -> Tuple[str, str]:
         """Returns (exe_name_lower, full_path) for a PID using 64-bit safe Win32 handles."""
         if pid <= 0:
             return "system/unknown", ""
         if pid == os.getpid():
-            full = sys.executable or "python.exe"
+            full = self._normalize_windows_fs_path(sys.executable or "python.exe")
             return os.path.basename(full).lower(), full
 
         now = time.time()
@@ -615,8 +664,10 @@ class ProcessMapper:
                         if kernel32.QueryFullProcessImageNameW(
                             h_proc, 0, buf, ctypes.byref(buf_len)
                         ):
-                            full_path = buf.value
-                            exe_name = os.path.basename(full_path).lower()
+                            cand_path = self._normalize_windows_fs_path(buf.value)
+                            exe_name = os.path.basename(cand_path).lower()
+                            if os.path.exists(cand_path):
+                                full_path = cand_path
                     finally:
                         kernel32.CloseHandle(h_proc)
             except Exception:
@@ -890,11 +941,11 @@ class ProcessMapper:
                 # Query full executable path on disk once per unique executable (or when a window/socket is found)
                 should_resolve_path = (
                     existing is None
-                    or (not existing.full_path and (bool(w_title) or has_net or is_pin))
+                    or not existing.full_path
                 )
                 _, full_path = self.get_exe_info(pid) if should_resolve_path else (name, "")
                 if not full_path:
-                    full_path = self._exe_path_map.get(name, "")
+                    full_path = self._exe_path_map.get(name, "") or self._find_system_binary_path(name)
 
                 sess_id = 1 if w_title else self._get_process_session_id(pid)
                 category = self.classify_process_category(name, w_title, has_net, is_pin, session_id=sess_id)
@@ -1024,33 +1075,94 @@ class ProcessMapper:
             return False, f"{norm} is running in the background (PID {target_pid}) but has no visible window."
         return False, f"{norm} is not currently running, so there is no window to focus."
 
+    @staticmethod
+    def build_explorer_select_command(full_path: str) -> str:
+        """
+        Builds a raw Win32 command string for explorer.exe so `/select,` is never
+        wrapped inside double quotes by `subprocess.list2cmdline` when `full_path`
+        contains spaces (e.g. `C:\\Program Files\\...`), which otherwise causes
+        Windows Explorer to ignore `/select` and open the default `Documents` folder.
+        """
+        norm_target = ProcessMapper._normalize_windows_fs_path(full_path)
+        if os.path.isdir(norm_target):
+            return f'explorer.exe "{norm_target}"'
+        return f'explorer.exe /select,"{norm_target}"'
+
+    @staticmethod
+    def _shell_select_item(full_path: str) -> bool:
+        """
+        Uses the native Win32 Shell API `SHOpenFolderAndSelectItems` (identical to
+        Windows Task Manager's 'Open file location') to open the parent folder and
+        select the executable without spawning a command-line parser.
+        """
+        if not IS_WINDOWS:
+            return False
+        norm_target = ProcessMapper._normalize_windows_fs_path(full_path)
+        if not os.path.isfile(norm_target):
+            return False
+        try:
+            ole32 = ctypes.windll.ole32
+            shell32 = ctypes.windll.shell32
+            ole32.CoInitialize(None)
+            pidl = ctypes.c_void_p(0)
+            sfgao = wintypes.ULONG(0)
+            hr = shell32.SHParseDisplayName(
+                norm_target, None, ctypes.byref(pidl), 0, ctypes.byref(sfgao)
+            )
+            if hr == 0 and pidl.value:
+                try:
+                    res = shell32.SHOpenFolderAndSelectItems(pidl, 0, None, 0)
+                    return res == 0
+                finally:
+                    shell32.ILFree(pidl)
+        except Exception:
+            pass
+        return False
+
     def locate_app(self, app_name: str, last_pid: int = 0) -> Tuple[bool, str]:
         norm = os.path.basename((app_name or "").strip().lower())
         if norm == TURBO_APP_KEY:
             return False, "The built-in engine has no executable location."
 
-        full_path = self._exe_path_map.get(norm, "")
+        full_path = self._normalize_windows_fs_path(self._exe_path_map.get(norm, ""))
         if not full_path or not os.path.exists(full_path):
             pinfo = next(
                 (p for p in self.scan_detailed_processes() if p.exe_name == norm),
                 None,
             )
-            detected_path = pinfo.full_path if pinfo else ""
-            full_path = detected_path
+            detected_path = self._normalize_windows_fs_path(pinfo.full_path) if pinfo else ""
+            full_path = detected_path if (detected_path and os.path.exists(detected_path)) else ""
             target_pid = pinfo.pid if pinfo and pinfo.pid > 0 else last_pid
             if not full_path and target_pid > 0:
-                _, full_path = self.get_exe_info(target_pid)
+                _, cand = self.get_exe_info(target_pid)
+                if cand and os.path.exists(cand):
+                    full_path = cand
+            if not full_path and IS_WINDOWS:
+                for proc_name, proc_pid in self._enumerate_windows_processes():
+                    if proc_name == norm:
+                        _, cand = self.get_exe_info(proc_pid)
+                        if cand and os.path.exists(cand):
+                            full_path = cand
+                            break
+            if not full_path and IS_WINDOWS:
+                full_path = self._find_system_binary_path(norm)
 
         if not full_path or not os.path.exists(full_path):
-            return False, f"No saved or detected file location is available for {norm}."
+            return (
+                False,
+                f"Windows restricted access to the executable path for {norm} (protected system process or not running).",
+            )
         if not IS_WINDOWS:
             return False, "Opening program locations is supported only on Windows."
 
         try:
-            if os.path.isdir(full_path):
-                subprocess.Popen(["explorer.exe", full_path])
+            norm_target = self._normalize_windows_fs_path(full_path)
+            if os.path.isdir(norm_target):
+                subprocess.Popen(self.build_explorer_select_command(norm_target))
                 return True, f"Opened the installation folder for {norm}."
-            subprocess.Popen(["explorer.exe", f"/select,{full_path}"])
+            if self._shell_select_item(norm_target):
+                return True, f"Opened the file location for {norm}."
+            subprocess.Popen(self.build_explorer_select_command(norm_target))
             return True, f"Opened the file location for {norm}."
         except OSError as e:
             return False, f"Could not open the file location for {norm}: {e}"

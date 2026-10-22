@@ -354,7 +354,7 @@ WEB_UI_HTML = """<!DOCTYPE html>
   .card-actions { display: flex; gap: 6px; margin-top: auto; min-width: 0; }
   .card-btn, .card-select {
     flex: 1;
-    background: #09090d;
+    background-color: #09090d;
     color: var(--text);
     border: 1px solid #272732;
     padding: 6px 8px;
@@ -363,7 +363,7 @@ WEB_UI_HTML = """<!DOCTYPE html>
     text-transform: uppercase;
     cursor: pointer;
   }
-  .card-btn:hover, .styled-select-trigger:hover { border-color: var(--amber); background: #14141c; }
+  .card-btn:hover, .styled-select-trigger:hover { border-color: var(--amber); background-color: #14141c; }
   .styled-select-wrap {
     position:relative;
     display:inline-flex;
@@ -382,33 +382,29 @@ WEB_UI_HTML = """<!DOCTYPE html>
     padding:5px 9px;
     overflow:hidden;
     color:var(--text);
-    background:#14141b;
+    background-color:#14141b;
     border:1px solid #272732;
     border-radius:0;
     font:700 10px 'Segoe UI',system-ui,sans-serif;
     text-align:left;
     cursor:pointer;
-    transition: border-color 0.14s ease, background 0.14s ease, color 0.14s ease;
+    transition: border-color 0.14s ease, background-color 0.14s ease, color 0.14s ease;
   }
-  /* Issue 6: Match per-application policy dropdown border, text, and chevron with the app's accent color */
+  /* Match per-application policy dropdown border, text, and static DOM chevron with the app's accent color */
   .styled-select-wrap.card-select-wrap .styled-select-trigger {
     height:auto;
     min-height:31px;
-    padding:6px 30px 6px 10px;
+    padding:6px 10px;
     color:var(--app-accent, var(--text));
-    background:#09090d;
+    background-color:#09090d;
     border:1px solid var(--app-accent, #272732);
     font-size:10.5px;
     font-weight:800;
     text-transform:uppercase;
-    background-image:linear-gradient(45deg,transparent 50%,var(--app-accent,var(--amber)) 50%),linear-gradient(135deg,var(--app-accent,var(--amber)) 50%,transparent 50%);
-    background-position:calc(100% - 14px) 50%,calc(100% - 10px) 50%;
-    background-size:4px 4px,4px 4px;
-    background-repeat:no-repeat;
   }
   .styled-select-wrap.card-select-wrap .styled-select-trigger:hover,
   .styled-select-wrap.card-select-wrap.open .styled-select-trigger {
-    background:#12121a;
+    background-color:#12121a;
     border-color:var(--app-accent, var(--amber));
     box-shadow: 0 0 0 1px var(--app-accent, var(--amber));
   }
@@ -421,8 +417,12 @@ WEB_UI_HTML = """<!DOCTYPE html>
     text-overflow:ellipsis;
     white-space:nowrap;
   }
-  .styled-select-chevron { flex:0 0 auto; color:var(--amber); font-size:9px; }
-  .styled-select-wrap.card-select-wrap .styled-select-chevron { display:none; }
+  .styled-select-chevron { flex:0 0 auto; color:var(--amber); font-size:9px; line-height:1; pointer-events:none; }
+  .styled-select-wrap.card-select-wrap .styled-select-chevron {
+    display:inline-block;
+    color:var(--app-accent, var(--amber));
+    font-size:10px;
+  }
   .styled-native-select {
     position:absolute!important;
     width:1px!important;
@@ -443,6 +443,7 @@ WEB_UI_HTML = """<!DOCTYPE html>
     max-width:min(360px,calc(100vw - 16px));
     max-height:min(280px,calc(100vh - 16px));
     overflow-y:auto;
+    overscroll-behavior:contain;
     padding:4px;
     color:var(--text);
     background:#101016;
@@ -1142,7 +1143,10 @@ document.addEventListener('keydown', event => {
   }
 });
 window.addEventListener('resize', closeStyledSelects);
-window.addEventListener('scroll', closeStyledSelects, true);
+window.addEventListener('scroll', event => {
+  if (event.target instanceof Element && event.target.closest('.styled-select-menu')) return;
+  closeStyledSelects();
+}, true);
 
 function renderAdapterLimits(adapters) {
   const grid = document.getElementById('adapterLimitGrid');

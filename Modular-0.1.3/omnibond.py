@@ -128,6 +128,12 @@ def run_selftest() -> int:
         assert "app.category === 'USER APPS'" in WEB_UI_HTML
         assert 'data-limit-mode="data_limit_gb"' in WEB_UI_HTML
         assert "styled-select-menu" in WEB_UI_HTML
+        assert "event.target.closest('.styled-select-menu')" in WEB_UI_HTML
+        assert ".styled-select-wrap.card-select-wrap .styled-select-chevron {\n    display:inline-block;" in WEB_UI_HTML
+        select_cmd = ProcessMapper.build_explorer_select_command(
+            r"C:\Program Files\Mozilla Firefox\firefox.exe"
+        )
+        assert select_cmd.startswith('explorer.exe /select,"')
         install_dir = os.path.join(tmp_dir, "location_test")
         os.makedirs(install_dir)
         engine.routing_mgr.set_favorite("chrome.exe", True)

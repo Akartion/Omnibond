@@ -292,6 +292,7 @@ class StudioDropdown(_TkFrameBase):
         body.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
 
         search_var = tk.StringVar()
+        ent_search: Optional[tk.Entry] = None
 
         if self.categories:
             top_filter = tk.Frame(body, bg="#12121a", padx=8, pady=6)
@@ -347,7 +348,21 @@ class StudioDropdown(_TkFrameBase):
         list_wrap.pack(fill=tk.BOTH, expand=True)
 
         cv = tk.Canvas(list_wrap, bg="#0d0d12", highlightthickness=0, bd=0)
+        vscroll = tk.Scrollbar(
+            list_wrap,
+            orient=tk.VERTICAL,
+            command=cv.yview,
+            width=8,
+            bg="#3f3f46",
+            troughcolor="#0d0d12",
+            activebackground="#52525b",
+            bd=0,
+            highlightthickness=0,
+            relief=tk.FLAT,
+        )
+        cv.configure(yscrollcommand=vscroll.set)
         cv.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        vscroll.pack(side=tk.RIGHT, fill=tk.Y)
 
         row_regions: List[Tuple[int, int, str, str]] = []
         hover_row_idx = [-1]
@@ -369,7 +384,7 @@ class StudioDropdown(_TkFrameBase):
                 filtered.append(it)
 
             row_h = 32
-            w_cv = pop_w - 4
+            w_cv = pop_w - 12
             if not filtered:
                 cv.create_text(
                     w_cv / 2, 40,
@@ -408,7 +423,7 @@ class StudioDropdown(_TkFrameBase):
                 meta_txt = it.get("meta", "")
                 if meta_txt:
                     cv.create_text(
-                        w_cv - 12, y0 + 16,
+                        w_cv - 10, y0 + 16,
                         text=meta_txt[:26],
                         fill="#71717a",
                         anchor="e",
@@ -437,10 +452,14 @@ class StudioDropdown(_TkFrameBase):
 
         def on_mousewheel(event):
             cv.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            return "break"
 
         cv.bind("<Motion>", on_cv_motion)
         cv.bind("<Button-1>", on_cv_click)
-        cv.bind("<MouseWheel>", on_mousewheel)
+        for wheel_widget in (pop, body, list_wrap, cv, vscroll):
+            wheel_widget.bind("<MouseWheel>", on_mousewheel)
+        if ent_search is not None:
+            ent_search.bind("<MouseWheel>", on_mousewheel)
         pop.bind("<Escape>", lambda _e: self._close_popup())
         search_var.trace_add("write", render_rows)
 
