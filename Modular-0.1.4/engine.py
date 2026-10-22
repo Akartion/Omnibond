@@ -451,13 +451,48 @@ class OmniBondEngine:
 
     def _metrics_loop(self):
         tick_count = 0
+        last_sys_total: Optional[int] = None
         while self._running:
             self.adapter_mgr.tick_throughput()
-            self.routing_mgr.tick_app_throughput()
-            for pid, byte_delta in self.process_tcp_counters.sample().items():
+
+            adapters = self.adapter_mgr.get_adapters()
+            cur_sys_total = sum(a.system_bytes_recv + a.system_bytes_sent for a in adapters)
+            sys_nic_delta = (
+                max(0, cur_sys_total - last_sys_total)
+                if last_sys_total is not None
+                else 0
+            )
+            last_sys_total = cur_sys_total
+
+            active_adapters = [a for a in adapters if a.enabled] or adapters
+            primary_ip = (
+                max(active_adapters, key=lambda a: a.system_current_bps).ip
+                if active_adapters
+                else "-"
+            )
+
+            # Sample per-process TCP + UDP/QUIC + I/O deltas BEFORE ticking app throughput
+            # so `tick_app_throughput()` immediately reflects the current tick's byte delta.
+            pid_deltas = self.process_tcp_counters.sample(system_nic_delta_bytes=sys_nic_delta)
+            for pid, byte_delta in pid_deltas.items():
                 if byte_delta:
                     app_name = self.process_mapper.get_exe_name(pid)
-                    self.routing_mgr.record_process_bytes(app_name, pid, byte_delta)
+                    self.routing_mgr.record_process_bytes(
+                        app_name, pid, byte_delta, default_adapter_ip=primary_ip
+                    )
+
+            app_conn_counts: Dict[str, int] = {}
+            for pid, cnt in self.process_tcp_counters.last_connection_counts.items():
+                if cnt > 0:
+                    app_name = self.process_mapper.get_exe_name(pid)
+                    norm = self.routing_mgr.normalize_app_name(app_name)
+                    app_conn_counts[norm] = app_conn_counts.get(norm, 0) + cnt
+            self.routing_mgr.update_os_connection_counts(
+                app_conn_counts, default_adapter_ip=primary_ip
+            )
+
+            self.routing_mgr.tick_app_throughput()
+
             # Re-sync running processes every ~6 seconds in background
             if tick_count % 12 == 0 and self.cached_detailed_procs:
                 try:

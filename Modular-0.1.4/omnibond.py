@@ -251,14 +251,25 @@ def run_selftest() -> int:
         assert entries["chrome.exe"]["last_adapter_ip"] == "127.0.0.2"
         assert "bps_history" in entries["steam.exe"]
         direct_telemetry_test = AppRoutingManager(persist_path="")
-        direct_telemetry_test.record_process_bytes("tcp_test.exe", 4242, 8192)
+        direct_telemetry_test.record_process_bytes(
+            "tcp_test.exe", 4242, 8192, default_adapter_ip="127.0.0.1"
+        )
+        direct_telemetry_test.update_os_connection_counts(
+            {"tcp_test.exe": 3}, default_adapter_ip="127.0.0.1"
+        )
         direct_telemetry_test.tick_app_throughput()
         direct_entry = {
             r["app_name"]: r for r in direct_telemetry_test.get_all_entries()
         }["tcp_test.exe"]
         assert direct_entry["bytes_transferred"] == 8192
         assert direct_entry["bps"] > 0
-        print("[4/6] Proxy and direct per-app TCP speed history & dynamic naming verified.")
+        assert direct_entry["active_connections"] == 3
+        assert direct_entry["last_adapter_ip"] == "127.0.0.1"
+        assert OmniBondDesktopGUI._split_app_title("Google Chrome", "chrome.exe") == ("Google Chrome", "chrome.exe")
+        assert [c[0] for c in OmniBondDesktopGUI.APP_ACCENT_PALETTE] == [
+            "#38bdf8", "#fb923c", "#34d399", "#a78bfa", "#facc15", "#f472b6"
+        ]
+        print("[4/6] Proxy and direct per-app TCP/UDP speed history, connection counts & Desktop UI parity verified.")
 
         limit_path = os.path.join(tmp_dir, "adapter_limits.json")
         limit_mgr = AdapterManager(

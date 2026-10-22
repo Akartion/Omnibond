@@ -76,6 +76,23 @@ class MIB_TCP6ROW(ctypes.Structure):
     ]
 
 
+class MIB_UDPROW_OWNER_PID(ctypes.Structure):
+    _fields_ = [
+        ("dwLocalAddr", wintypes.DWORD),
+        ("dwLocalPort", wintypes.DWORD),
+        ("dwOwningPid", wintypes.DWORD),
+    ]
+
+
+class MIB_UDP6ROW_OWNER_PID(ctypes.Structure):
+    _fields_ = [
+        ("ucLocalAddr", ctypes.c_ubyte * 16),
+        ("dwLocalScopeId", wintypes.DWORD),
+        ("dwLocalPort", wintypes.DWORD),
+        ("dwOwningPid", wintypes.DWORD),
+    ]
+
+
 class PROCESSENTRY32W(ctypes.Structure):
     _fields_ = [
         ("dwSize", wintypes.DWORD),
@@ -133,7 +150,7 @@ if IS_WINDOWS:
         _u32.GetWindowTextLengthW.argtypes = [wintypes.HWND]
         _u32.GetWindowTextLengthW.restype = ctypes.c_int
         _u32.GetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
-        _u32.GetWindowTextW.restype = ctypes.c_int
+        _u32.GetWindowTextW.restype = wintypes.int if hasattr(wintypes, "int") else ctypes.c_int
         _u32.GetClassNameW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
         _u32.GetClassNameW.restype = ctypes.c_int
         _u32.GetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int]
@@ -304,8 +321,6 @@ class ProcessMapper:
             if size > 0:
                 buf = ctypes.create_string_buffer(size)
                 if version_dll.GetFileVersionInfoW(full_path, 0, size, buf):
-                    # Collect all language/codepage translation pairs from the PE header,
-                    # plus standard Windows English/Unicode fallback pairs.
                     lang_cp_pairs: List[str] = []
                     lp_translate = ctypes.c_void_p(0)
                     cb_translate = wintypes.UINT(0)
@@ -361,7 +376,6 @@ class ProcessMapper:
         except Exception:
             pass
 
-        # Fallback to Windows Shell SHGetFileInfoW display name if PE VersionInfo was stripped
         if not desc:
             try:
                 shell32 = ctypes.windll.shell32
@@ -417,23 +431,17 @@ class ProcessMapper:
 
     @staticmethod
     def _clean_window_subject(window_title: str, app_label: str = "") -> str:
-        """
-        Extracts the active window/tab subject from a window title
-        (e.g. 'Gemini - Google Chrome' -> 'Gemini', 'Gemini and 2 more pages - Microsoft Edge' -> 'Gemini').
-        """
         cleaned = re.sub(r"[\u200b\u200c\u200d\ufeff]", "", (window_title or "")).strip()
         if not cleaned:
             return ""
         parts = [p.strip() for p in re.split(r"\s+[-—–|]\s+", cleaned) if p.strip()]
         if len(parts) >= 2:
-            # Strip trailing browser/profile segments like 'Personal', 'Work', 'and 3 more pages'
             subject = re.sub(r"\s+and\s+\d+\s+more\s+pages?$", "", parts[0], flags=re.IGNORECASE).strip()
             if subject and (not app_label or subject.casefold() != app_label.casefold()):
                 return subject
         return cleaned
 
     def _find_system_binary_path(self, exe_name: str) -> str:
-        """Checks standard Windows system directories for an OS binary if OpenProcess was restricted."""
         norm = os.path.basename((exe_name or "").strip().lower())
         if not IS_WINDOWS or not norm:
             return ""
@@ -453,13 +461,6 @@ class ProcessMapper:
     def resolve_friendly_app_name(
         self, exe_name: str, window_title: str = "", full_path: str = ""
     ) -> str:
-        """
-        Dynamically resolves the human-readable application or service name directly from:
-        1. The executable's PE Version Info (`FileDescription` / `ProductName`) on disk,
-        2. Windows Shell / Service Control Manager metadata, and
-        3. The live OS window title when a window is open,
-        with zero hardcoded application dictionaries.
-        """
         norm = os.path.basename((exe_name or "").strip().lower())
         if not norm:
             return "System Process"
@@ -478,10 +479,7 @@ class ProcessMapper:
         if w_title and w_title != "Windows Shell":
             subject = self._clean_window_subject(w_title, base_name)
             if base_name:
-                # If the window has a distinct subject (such as a web app tab/window or folder),
-                # show the base application name or combine when the window is a standalone web app.
                 if subject and subject.casefold() != base_name.casefold() and len(subject) <= 28:
-                    # If the window title does NOT end with the base app name, it's a standalone PWA/App window
                     if base_name.casefold() not in w_title.casefold():
                         return f"{subject} ({base_name})"
                 return base_name
@@ -516,7 +514,7 @@ class ProcessMapper:
         return pid, exe_name
 
     def get_active_tcp_pids(self) -> Set[int]:
-        """Returns all PIDs that currently own active IPv4 or IPv6 TCP connections."""
+        """Returns all PIDs that currently own active IPv4 or IPv6 TCP or UDP sockets."""
         pids: Set[int] = set()
         if not IS_WINDOWS:
             pids.add(os.getpid())
@@ -526,6 +524,7 @@ class ProcessMapper:
             AF_INET = 2
             AF_INET6 = 23
             TCP_TABLE_OWNER_PID_ALL = 5
+            UDP_TABLE_OWNER_PID = 1
             for family, row_type in ((AF_INET, MIB_TCPROW_OWNER_PID), (AF_INET6, MIB_TCP6ROW_OWNER_PID)):
                 size = wintypes.DWORD(0)
                 iphlpapi.GetExtendedTcpTable(
@@ -533,16 +532,55 @@ class ProcessMapper:
                 )
                 if size.value == 0:
                     continue
-                buf = ctypes.create_string_buffer(size.value)
-                if iphlpapi.GetExtendedTcpTable(
-                    buf, ctypes.byref(size), False, family, TCP_TABLE_OWNER_PID_ALL, 0
-                ) != 0:
+                buf = None
+                ret = 122
+                for _ in range(4):
+                    alloc_len = size.value + 8192
+                    size.value = alloc_len
+                    buf = ctypes.create_string_buffer(alloc_len)
+                    ret = iphlpapi.GetExtendedTcpTable(
+                        buf, ctypes.byref(size), False, family, TCP_TABLE_OWNER_PID_ALL, 0
+                    )
+                    if ret != 122:
+                        break
+                if ret != 0 or buf is None:
                     continue
                 num_entries = struct.unpack_from("<I", buf.raw, 0)[0]
                 row_size = ctypes.sizeof(row_type)
                 offset = 4
                 for _ in range(num_entries):
-                    if offset + row_size > size.value:
+                    if offset + row_size > len(buf.raw):
+                        break
+                    row = row_type.from_buffer_copy(buf.raw, offset)
+                    offset += row_size
+                    if row.dwOwningPid > 4:
+                        pids.add(int(row.dwOwningPid))
+
+            for family, row_type in ((AF_INET, MIB_UDPROW_OWNER_PID), (AF_INET6, MIB_UDP6ROW_OWNER_PID)):
+                size = wintypes.DWORD(0)
+                iphlpapi.GetExtendedUdpTable(
+                    None, ctypes.byref(size), False, family, UDP_TABLE_OWNER_PID, 0
+                )
+                if size.value == 0:
+                    continue
+                buf = None
+                ret = 122
+                for _ in range(4):
+                    alloc_len = size.value + 8192
+                    size.value = alloc_len
+                    buf = ctypes.create_string_buffer(alloc_len)
+                    ret = iphlpapi.GetExtendedUdpTable(
+                        buf, ctypes.byref(size), False, family, UDP_TABLE_OWNER_PID, 0
+                    )
+                    if ret != 122:
+                        break
+                if ret != 0 or buf is None:
+                    continue
+                num_entries = struct.unpack_from("<I", buf.raw, 0)[0]
+                row_size = ctypes.sizeof(row_type)
+                offset = 4
+                for _ in range(num_entries):
+                    if offset + row_size > len(buf.raw):
                         break
                     row = row_type.from_buffer_copy(buf.raw, offset)
                     offset += row_size
@@ -571,11 +609,18 @@ class ProcessMapper:
             if size.value == 0:
                 return 0
 
-            buf = ctypes.create_string_buffer(size.value)
-            ret = iphlpapi.GetExtendedTcpTable(
-                buf, ctypes.byref(size), False, AF_INET, TCP_TABLE_OWNER_PID_ALL, 0
-            )
-            if ret != 0:
+            buf = None
+            ret = 122
+            for _ in range(4):
+                alloc_len = size.value + 8192
+                size.value = alloc_len
+                buf = ctypes.create_string_buffer(alloc_len)
+                ret = iphlpapi.GetExtendedTcpTable(
+                    buf, ctypes.byref(size), False, AF_INET, TCP_TABLE_OWNER_PID_ALL, 0
+                )
+                if ret != 122:
+                    break
+            if ret != 0 or buf is None:
                 return 0
 
             num_entries = struct.unpack_from("<I", buf.raw, 0)[0]
@@ -584,7 +629,7 @@ class ProcessMapper:
             target_port_net = socket.htons(client_port)
 
             for _ in range(num_entries):
-                if offset + row_size > size.value:
+                if offset + row_size > len(buf.raw):
                     break
                 row = MIB_TCPROW_OWNER_PID.from_buffer_copy(buf.raw, offset)
                 offset += row_size
@@ -739,13 +784,6 @@ class ProcessMapper:
         return 1
 
     def get_visible_window_pids(self) -> Dict[int, str]:
-        """
-        Task-Manager-style visible window enumerator:
-        - Filters out DWM-cloaked background frames (DWMWA_CLOAKED)
-        - Resolves UWP apps hosted inside ApplicationFrameHost.exe via EnumChildWindows
-        - Detects File Explorer folder windows and the active Windows Shell process via GetShellWindow()
-        - Collects all visible top-level window titles per PID so multi-window apps & PWAs are preserved
-        """
         pid_titles_list: Dict[int, List[str]] = {}
         if not IS_WINDOWS:
             return {}
@@ -809,7 +847,6 @@ class ProcessMapper:
                 if top_pid <= 0:
                     return True
 
-                # UWP / Store apps hosted by ApplicationFrameHost.exe: resolve real child CoreWindow PID
                 if wnd_class == "ApplicationFrameWindow":
                     child_pids: List[int] = []
 
@@ -831,8 +868,6 @@ class ProcessMapper:
 
             user32.EnumWindows(WNDENUMPROC(enum_cb), 0)
 
-            # Always include the active Windows Desktop Shell process (e.g. explorer.exe)
-            # even when zero folder windows are currently open on the desktop.
             shell_pid = self._get_shell_process_pid()
             if shell_pid > 0 and shell_pid not in pid_titles_list:
                 pid_titles_list[shell_pid] = ["Windows Shell"]
@@ -842,10 +877,6 @@ class ProcessMapper:
         return {pid: " · ".join(titles[:3]) for pid, titles in pid_titles_list.items() if titles}
 
     def _enumerate_windows_processes(self) -> List[Tuple[str, int]]:
-        """
-        Enumerates all running Windows processes (exe_name_lower, pid) using the fast
-        Win32 CreateToolhelp32Snapshot API (< 5ms, never times out), falling back to tasklist.
-        """
         results: List[Tuple[str, int]] = []
         if not IS_WINDOWS:
             return results
@@ -909,13 +940,6 @@ class ProcessMapper:
         is_pinned: bool = False,
         session_id: int = 1,
     ) -> str:
-        """
-        Classifies a process using Task Manager rules:
-        - Any process with a visible uncloaked window (or the active desktop shell) -> 'USER APPS'
-        - Any Session-0 process without a visible window -> 'SERVICES / BG'
-        - Any user-session process without a window that has active TCP sockets -> 'ACTIVE NET'
-        - All remaining background processes -> 'SERVICES / BG'
-        """
         if window_title:
             return "USER APPS"
         if session_id == 0 and not is_pinned:
@@ -938,7 +962,6 @@ class ProcessMapper:
                 is_pin = name in pinned_keys
                 existing = discovered.get(name)
 
-                # Query full executable path on disk once per unique executable (or when a window/socket is found)
                 should_resolve_path = (
                     existing is None
                     or not existing.full_path
@@ -987,7 +1010,6 @@ class ProcessMapper:
                     )
 
         if not discovered:
-            # Non-Windows / Linux / macOS live process enumeration via /proc or ps
             try:
                 proc = subprocess.run(
                     ["ps", "-eo", "pid,comm,args"],
@@ -1077,12 +1099,6 @@ class ProcessMapper:
 
     @staticmethod
     def build_explorer_select_command(full_path: str) -> str:
-        """
-        Builds a raw Win32 command string for explorer.exe so `/select,` is never
-        wrapped inside double quotes by `subprocess.list2cmdline` when `full_path`
-        contains spaces (e.g. `C:\\Program Files\\...`), which otherwise causes
-        Windows Explorer to ignore `/select` and open the default `Documents` folder.
-        """
         norm_target = ProcessMapper._normalize_windows_fs_path(full_path)
         if os.path.isdir(norm_target):
             return f'explorer.exe "{norm_target}"'
@@ -1090,11 +1106,6 @@ class ProcessMapper:
 
     @staticmethod
     def _shell_select_item(full_path: str) -> bool:
-        """
-        Uses the native Win32 Shell API `SHOpenFolderAndSelectItems` (identical to
-        Windows Task Manager's 'Open file location') to open the parent folder and
-        select the executable without spawning a command-line parser.
-        """
         if not IS_WINDOWS:
             return False
         norm_target = ProcessMapper._normalize_windows_fs_path(full_path)

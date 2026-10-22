@@ -12,7 +12,7 @@ import re
 import sys
 import threading
 import time
-from typing import Dict, List, Set
+from typing import Dict, List, Optional, Set
 
 from config import (
     BLOCK_INTERNET_RULE,
@@ -48,6 +48,7 @@ class AppTrafficStats:
     display_name: str
     last_pid: int = 0
     active_connections: int = 0
+    os_active_connections: int = 0
     total_connections: int = 0
     bytes_transferred: int = 0
     last_adapter_ip: str = "-"
@@ -257,6 +258,7 @@ class AppRoutingManager:
                         st.display_name = _default_friendly_label(key, st.window_title)
                 else:
                     st.is_running = False
+                    st.os_active_connections = 0
 
             for p in detailed_procs:
                 friendly = getattr(p, "display_name", "") or _default_friendly_label(p.exe_name, p.window_title)
@@ -299,7 +301,13 @@ class AppRoutingManager:
                 st.bytes_transferred += num_bytes
                 st.last_seen = time.time()
 
-    def record_process_bytes(self, app_name: str, pid: int, num_bytes: int):
+    def record_process_bytes(
+        self,
+        app_name: str,
+        pid: int,
+        num_bytes: int,
+        default_adapter_ip: str = "",
+    ):
         if num_bytes <= 0:
             return
         key = self.normalize_app_name(app_name)
@@ -308,12 +316,33 @@ class AppRoutingManager:
             if not st:
                 st = AppTrafficStats(app_name=key, display_name=_default_friendly_label(key))
                 self._stats[key] = st
-            st.last_pid = pid
+            if pid > 0 and st.last_pid <= 0:
+                st.last_pid = pid
             st.is_running = True
             st.has_active_socket = True
             st.bytes_transferred += num_bytes
+            if default_adapter_ip and st.last_adapter_ip in ("-", ""):
+                rule = self._rules.get(key, "AUTO")
+                st.last_adapter_ip = rule if (rule not in ("AUTO", BLOCK_INTERNET_RULE)) else default_adapter_ip
             st.last_seen = time.time()
             self._rules.setdefault(key, "AUTO")
+
+    def update_os_connection_counts(
+        self, app_conn_counts: Dict[str, int], default_adapter_ip: str = ""
+    ):
+        with self._lock:
+            for key, st in self._stats.items():
+                cnt = app_conn_counts.get(key, 0)
+                st.os_active_connections = cnt
+                if cnt > 0:
+                    st.has_active_socket = True
+                    if st.total_connections < cnt:
+                        st.total_connections = cnt
+                    if default_adapter_ip and st.last_adapter_ip in ("-", ""):
+                        rule = self._rules.get(key, "AUTO")
+                        st.last_adapter_ip = (
+                            rule if (rule not in ("AUTO", BLOCK_INTERNET_RULE)) else default_adapter_ip
+                        )
 
     def record_connection_end(self, app_name: str):
         key = self.normalize_app_name(app_name)
@@ -366,13 +395,22 @@ class AppRoutingManager:
                 else:
                     label = _default_friendly_label(key, w_title)
 
+                active_conns = max(
+                    st.active_connections if st else 0,
+                    st.os_active_connections if st else 0,
+                )
+                total_conns = max(
+                    st.total_connections if st else 0,
+                    active_conns,
+                )
+
                 rows.append({
                     "app_name": key,
                     "display_name": label,
                     "rule": rule,
                     "last_pid": st.last_pid if st else 0,
-                    "active_connections": st.active_connections if st else 0,
-                    "total_connections": st.total_connections if st else 0,
+                    "active_connections": active_conns,
+                    "total_connections": total_conns,
                     "bytes_transferred": st.bytes_transferred if st else 0,
                     "last_adapter_ip": st.last_adapter_ip if st else "-",
                     "is_builtin": is_builtin,

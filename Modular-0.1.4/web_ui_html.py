@@ -1296,29 +1296,56 @@ function matchesCurrentAppFilter(app) {
 
 function drawSparkline(canvas, history, color) {
   if (!canvas || !history || history.length < 2) return;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const cssW = Math.max(120, rect.width || canvas.width || 190);
+  const cssH = Math.max(24, rect.height || canvas.height || 32);
+  if (canvas.width !== Math.floor(cssW * dpr) || canvas.height !== Math.floor(cssH * dpr)) {
+    canvas.width = Math.floor(cssW * dpr);
+    canvas.height = Math.floor(cssH * dpr);
+  }
   const ctx = canvas.getContext('2d');
-  const w = canvas.width;
-  const h = canvas.height;
+  ctx.save();
+  ctx.scale(dpr, dpr);
+  const w = cssW;
+  const h = cssH;
   ctx.clearRect(0, 0, w, h);
-  let maxV = 8192;
-  for (const v of history) if (v * 1.15 > maxV) maxV = v * 1.15;
+
+  let maxV = 4096;
+  for (const v of history) if (v * 1.18 > maxV) maxV = v * 1.18;
+
+  const pts = history.map((v, i) => ({
+    x: (i / (history.length - 1)) * (w - 8) + 3,
+    y: h - 3 - Math.min(1, Math.max(0, v / maxV)) * (h - 7)
+  }));
 
   ctx.beginPath();
-  history.forEach((v, i) => {
-    const x = (i / (history.length - 1)) * (w - 4) + 2;
-    const y = h - 3 - Math.min(1, v / maxV) * (h - 7);
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  });
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 0; i < pts.length - 1; i++) {
+    const xc = (pts[i].x + pts[i + 1].x) / 2;
+    const yc = (pts[i].y + pts[i + 1].y) / 2;
+    ctx.quadraticCurveTo(pts[i].x, pts[i].y, xc, yc);
+  }
+  const last = pts[pts.length - 1];
+  ctx.lineTo(last.x, last.y);
   ctx.strokeStyle = color;
-  ctx.lineWidth = 1.6;
+  ctx.lineWidth = 1.7;
   ctx.stroke();
 
-  ctx.lineTo(w - 2, h - 2);
-  ctx.lineTo(2, h - 2);
+  ctx.lineTo(last.x, h - 2);
+  ctx.lineTo(pts[0].x, h - 2);
   ctx.closePath();
-  ctx.fillStyle = color + '28';
+  const grad = ctx.createLinearGradient(0, 2, 0, h - 2);
+  grad.addColorStop(0, color + '3d');
+  grad.addColorStop(1, color + '05');
+  ctx.fillStyle = grad;
   ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(last.x, last.y, 2.3, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.restore();
 }
 
 function drawGoogleStyleChart(adapters) {
@@ -1502,7 +1529,7 @@ async function fetchState() {
     });
     const appGrid = document.getElementById('appBentoGrid');
     const appPolicyFocused = Boolean(
-      document.activeElement?.closest?.('.card-select-wrap') || appGrid.querySelector('.card-select-wrap.open')
+      appGrid.querySelector('.card-select-wrap.open')
     );
     const appStructure = JSON.stringify([
       currentFilter,
