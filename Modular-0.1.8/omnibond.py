@@ -129,7 +129,7 @@ def run_selftest() -> int:
         assert 'data-limit-mode="data_limit_gb"' in WEB_UI_HTML
         assert "styled-select-menu" in WEB_UI_HTML
         assert "event.target.closest('.styled-select-menu')" in WEB_UI_HTML
-        assert ".styled-select-wrap.card-select-wrap .styled-select-chevron {\n    display:inline-block;" in WEB_UI_HTML
+        assert ".styled-select-wrap.card-select-wrap .styled-select-chevron {\n    display:inline-flex;" in WEB_UI_HTML
         select_cmd = ProcessMapper.build_explorer_select_command(
             r"C:\Program Files\Mozilla Firefox\firefox.exe"
         )
@@ -275,6 +275,8 @@ def run_selftest() -> int:
         assert len(ys_test) == 60
         ppm_test = OmniBondDesktopGUI._render_sparkline_ppm(60, 26, ys_test, (7, 7, 10), (56, 189, 248))
         assert ppm_test.startswith(b"P6\n60 26\n255\n")
+        assert OmniBondDesktopGUI._fmt_axis_speed(64 * 1024) == "64 KB/s"
+        assert OmniBondDesktopGUI._fmt_speed(64 * 1024) == "64.0 KB/s" 
         print("[4/6] Proxy and direct per-app TCP/UDP speed history, connection counts & Desktop UI parity verified.")
 
         limit_path = os.path.join(tmp_dir, "adapter_limits.json")

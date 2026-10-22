@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
-OmniBond - Custom Dark Studio UI Components: Hover Tooltips, Scrollbars & Dropdowns.
+OmniBond - Custom Dark Studio UI Components: Tabler Vector Icons, Tooltips, Scrollbars & Dropdowns.
 """
 
 from __future__ import annotations
 
+import math
 import time
 from typing import Callable, Dict, List, Optional, Tuple
 
@@ -12,7 +13,227 @@ from config import _TkFrameBase, tk
 
 _TkCanvasBase = tk.Canvas if tk is not None else object
 
-__all__ = ["StudioTooltip", "StudioDropdown", "StudioScrollbar"]
+__all__ = [
+    "StudioTooltip",
+    "StudioDropdown",
+    "StudioScrollbar",
+    "render_tabler_icon_ppm",
+    "get_tabler_icon_image",
+]
+
+# =====================================================================
+# TABLER VECTOR ICON DEFINITIONS (16x16 NORMALIZED COORDINATES)
+# =====================================================================
+
+_TABLER_ICON_STROKES: Dict[str, List[Tuple]] = {
+    "chevron-down": [
+        ("line", 4.2, 6.2, 8.0, 10.0),
+        ("line", 8.0, 10.0, 11.8, 6.2),
+    ],
+    "chevron-up": [
+        ("line", 4.2, 10.0, 8.0, 6.2),
+        ("line", 8.0, 6.2, 11.8, 10.0),
+    ],
+    "link": [
+        ("line", 6.5, 9.5, 9.5, 6.5),
+        ("line", 8.5, 5.2, 10.5, 3.2),
+        ("line", 10.5, 3.2, 12.8, 5.5),
+        ("line", 12.8, 5.5, 10.8, 7.5),
+        ("line", 7.5, 10.8, 5.5, 12.8),
+        ("line", 5.5, 12.8, 3.2, 10.5),
+        ("line", 3.2, 10.5, 5.2, 8.5),
+    ],
+    "power": [
+        ("line", 8.0, 2.5, 8.0, 8.0),
+        ("line", 5.0, 4.5, 3.5, 7.2),
+        ("line", 3.5, 7.2, 4.2, 10.8),
+        ("line", 4.2, 10.8, 8.0, 13.0),
+        ("line", 8.0, 13.0, 11.8, 10.8),
+        ("line", 11.8, 10.8, 12.5, 7.2),
+        ("line", 12.5, 7.2, 11.0, 4.5),
+    ],
+    "sliders": [
+        ("line", 2.5, 4.5, 13.5, 4.5),
+        ("dot", 6.0, 4.5, 1.7),
+        ("line", 2.5, 8.0, 13.5, 8.0),
+        ("dot", 10.5, 8.0, 1.7),
+        ("line", 2.5, 11.5, 13.5, 11.5),
+        ("dot", 5.0, 11.5, 1.7),
+    ],
+    "tool": [
+        ("circle", 10.8, 5.2, 2.6),
+        ("line", 8.8, 7.2, 3.2, 12.8),
+        ("line", 2.6, 11.6, 4.4, 13.4),
+    ],
+    "activity": [
+        ("line", 1.8, 8.2, 4.8, 8.2),
+        ("line", 4.8, 8.2, 6.6, 3.2),
+        ("line", 6.6, 3.2, 9.4, 12.8),
+        ("line", 9.4, 12.8, 11.2, 8.2),
+        ("line", 11.2, 8.2, 14.2, 8.2),
+    ],
+    "arrows-split": [
+        ("line", 2.2, 8.0, 6.5, 8.0),
+        ("line", 6.5, 8.0, 9.5, 4.5),
+        ("line", 9.5, 4.5, 13.5, 4.5),
+        ("line", 6.5, 8.0, 9.5, 11.5),
+        ("line", 9.5, 11.5, 13.5, 11.5),
+        ("line", 11.8, 2.8, 13.6, 4.5),
+        ("line", 11.8, 13.2, 13.6, 11.5),
+    ],
+    "eye": [
+        ("line", 1.8, 8.0, 5.2, 4.6),
+        ("line", 5.2, 4.6, 10.8, 4.6),
+        ("line", 10.8, 4.6, 14.2, 8.0),
+        ("line", 14.2, 8.0, 10.8, 11.4),
+        ("line", 10.8, 11.4, 5.2, 11.4),
+        ("line", 5.2, 11.4, 1.8, 8.0),
+        ("circle", 8.0, 8.0, 1.8),
+    ],
+    "eye-off": [
+        ("line", 1.8, 8.0, 5.2, 4.6),
+        ("line", 5.2, 4.6, 10.8, 4.6),
+        ("line", 10.8, 4.6, 14.2, 8.0),
+        ("line", 14.2, 8.0, 10.8, 11.4),
+        ("line", 10.8, 11.4, 5.2, 11.4),
+        ("line", 5.2, 11.4, 1.8, 8.0),
+        ("line", 2.8, 2.8, 13.2, 13.2),
+    ],
+    "refresh": [
+        ("circle", 8.0, 8.0, 4.8),
+        ("line", 10.8, 2.6, 13.2, 4.8),
+        ("line", 13.2, 4.8, 10.4, 5.6),
+    ],
+    "grid": [
+        ("rect", 2.6, 2.6, 6.8, 6.8),
+        ("rect", 9.2, 2.6, 13.4, 6.8),
+        ("rect", 2.6, 9.2, 6.8, 13.4),
+        ("rect", 9.2, 9.2, 13.4, 13.4),
+    ],
+    "list": [
+        ("dot", 3.2, 4.2, 0.9),
+        ("line", 6.0, 4.2, 13.4, 4.2),
+        ("dot", 3.2, 8.0, 0.9),
+        ("line", 6.0, 8.0, 13.4, 8.0),
+        ("dot", 3.2, 11.8, 0.9),
+        ("line", 6.0, 11.8, 13.4, 11.8),
+    ],
+    "search": [
+        ("circle", 7.0, 7.0, 4.2),
+        ("line", 10.2, 10.2, 13.6, 13.6),
+    ],
+    "plus": [
+        ("line", 8.0, 3.0, 8.0, 13.0),
+        ("line", 3.0, 8.0, 13.0, 8.0),
+    ],
+    "folder": [
+        ("line", 2.2, 4.2, 6.2, 4.2),
+        ("line", 6.2, 4.2, 7.6, 5.8),
+        ("line", 7.6, 5.8, 13.8, 5.8),
+        ("line", 13.8, 5.8, 13.8, 12.6),
+        ("line", 13.8, 12.6, 2.2, 12.6),
+        ("line", 2.2, 12.6, 2.2, 4.2),
+    ],
+    "download": [
+        ("line", 8.0, 2.5, 8.0, 10.2),
+        ("line", 5.0, 7.4, 8.0, 10.4),
+        ("line", 11.0, 7.4, 8.0, 10.4),
+        ("line", 3.0, 13.0, 13.0, 13.0),
+    ],
+    "check": [
+        ("line", 3.2, 8.4, 6.6, 11.8),
+        ("line", 6.6, 11.8, 13.0, 4.4),
+    ],
+}
+
+_ICON_IMG_CACHE: Dict[Tuple[str, int, str, str], "tk.PhotoImage"] = {}
+
+
+def _hex_to_rgb_tuple(hex_col: str) -> Tuple[int, int, int]:
+    h = (hex_col or "#0c0c0f").lstrip("#")
+    if len(h) != 6:
+        return (12, 12, 15)
+    return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+
+
+def render_tabler_icon_ppm(
+    name: str,
+    size: int = 13,
+    fg_hex: str = "#fafafa",
+    bg_hex: str = "#0c0c0f",
+) -> bytes:
+    """Renders a sub-pixel distance-field anti-aliased Tabler icon as a P6 PPM byte buffer."""
+    bg_r, bg_g, bg_b = _hex_to_rgb_tuple(bg_hex)
+    fg_r, fg_g, fg_b = _hex_to_rgb_tuple(fg_hex)
+    buf = bytearray(bytes((bg_r, bg_g, bg_b)) * (size * size))
+    strokes = _TABLER_ICON_STROKES.get(name, _TABLER_ICON_STROKES["chevron-down"])
+    scale = size / 16.0
+    half_w = 0.68 * scale
+
+    def seg_dist(px: float, py: float, x1: float, y1: float, x2: float, y2: float) -> float:
+        dx, dy = x2 - x1, y2 - y1
+        l2 = dx * dx + dy * dy
+        if l2 <= 1e-6:
+            return math.hypot(px - x1, py - y1)
+        t = max(0.0, min(1.0, ((px - x1) * dx + (py - y1) * dy) / l2))
+        return math.hypot(px - (x1 + t * dx), py - (y1 + t * dy))
+
+    for y in range(size):
+        py = y + 0.5
+        for x in range(size):
+            px = x + 0.5
+            min_d = 999.0
+            for st in strokes:
+                kind = st[0]
+                if kind == "line":
+                    _, x1, y1, x2, y2 = st
+                    d = seg_dist(px, py, x1 * scale, y1 * scale, x2 * scale, y2 * scale)
+                elif kind == "circle":
+                    _, cx, cy, r = st
+                    d = abs(math.hypot(px - cx * scale, py - cy * scale) - r * scale)
+                elif kind == "dot":
+                    _, cx, cy, r = st
+                    d = max(0.0, math.hypot(px - cx * scale, py - cy * scale) - r * scale)
+                elif kind == "rect":
+                    _, x1, y1, x2, y2 = st
+                    d = min(
+                        seg_dist(px, py, x1 * scale, y1 * scale, x2 * scale, y1 * scale),
+                        seg_dist(px, py, x2 * scale, y1 * scale, x2 * scale, y2 * scale),
+                        seg_dist(px, py, x2 * scale, y2 * scale, x1 * scale, y2 * scale),
+                        seg_dist(px, py, x1 * scale, y2 * scale, x1 * scale, y1 * scale),
+                    )
+                else:
+                    d = 999.0
+                if d < min_d:
+                    min_d = d
+            cov = max(0.0, min(1.0, half_w + 0.5 - min_d))
+            if cov > 0.02:
+                idx = (y * size + x) * 3
+                inv = 1.0 - cov
+                buf[idx] = int(bg_r * inv + fg_r * cov)
+                buf[idx + 1] = int(bg_g * inv + fg_g * cov)
+                buf[idx + 2] = int(bg_b * inv + fg_b * cov)
+    return f"P6\n{size} {size}\n255\n".encode("ascii") + buf
+
+
+def get_tabler_icon_image(
+    name: str,
+    size: int = 13,
+    fg_hex: str = "#fafafa",
+    bg_hex: str = "#0c0c0f",
+) -> Optional["tk.PhotoImage"]:
+    if tk is None:
+        return None
+    key = (name, size, fg_hex.lower(), bg_hex.lower())
+    img = _ICON_IMG_CACHE.get(key)
+    if img is None:
+        ppm = render_tabler_icon_ppm(name, size=size, fg_hex=fg_hex, bg_hex=bg_hex)
+        img = tk.PhotoImage(data=ppm)
+        if len(_ICON_IMG_CACHE) > 256:
+            _ICON_IMG_CACHE.clear()
+        _ICON_IMG_CACHE[key] = img
+    return img
+
 
 # =====================================================================
 # 9. CUSTOM STUDIO UI COMPONENTS: HOVER TOOLTIPS, SCROLLBAR & DROPDOWN
@@ -271,13 +492,15 @@ class StudioScrollbar(_TkCanvasBase):
 
 class StudioDropdown(_TkFrameBase):
     """
-    Custom Dark-Mode Dropdown Selector that matches the Web UI's .styled-select-trigger & .styled-select-menu.
-    Uses color shift on hover instead of bright outlines, works inside modal dialogs without grab conflicts,
-    and cleanly toggles closed when re-clicked.
+    Custom Dark-Mode Dropdown Selector matching the Web UI's .styled-select-trigger & .styled-select-menu.
+    Uses panel background (#0c0c0f) when inactive, color-shift on hover (#1e1e2c), and a sleek
+    anti-aliased Tabler stroke chevron icon instead of oversized triangle glyphs.
     """
 
     _active_dropdown: Optional["StudioDropdown"] = None
     _global_bind_installed: bool = False
+    REST_BG = "#0c0c0f"
+    HOV_BG = "#1e1e2c"
 
     def __init__(
         self,
@@ -290,7 +513,7 @@ class StudioDropdown(_TkFrameBase):
     ):
         super().__init__(
             parent,
-            bg="#14141b",
+            bg=self.REST_BG,
             highlightthickness=1,
             highlightbackground="#272732",
             width=width_px,
@@ -308,11 +531,12 @@ class StudioDropdown(_TkFrameBase):
         self._popup: Optional[tk.Toplevel] = None
         self._active_category: str = "ALL"
         self._closed_at: float = 0.0
+        self._is_open_visual: bool = False
 
         self.lbl_text = tk.Label(
             self,
             text=self._selected_label,
-            bg="#14141b",
+            bg=self.REST_BG,
             fg="#fafafa",
             font=("Segoe UI", 8, "bold"),
             anchor="w",
@@ -321,13 +545,14 @@ class StudioDropdown(_TkFrameBase):
         )
         self.lbl_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        # Larger, well-proportioned chevron icon (▼ / ▲)
+        self._icon_down_rest = get_tabler_icon_image("chevron-down", size=12, fg_hex="#f59e0b", bg_hex=self.REST_BG)
+        self._icon_down_hov = get_tabler_icon_image("chevron-down", size=12, fg_hex="#f59e0b", bg_hex=self.HOV_BG)
+        self._icon_up_hov = get_tabler_icon_image("chevron-up", size=12, fg_hex="#f59e0b", bg_hex=self.HOV_BG)
+
         self.lbl_arrow = tk.Label(
             self,
-            text="▼",
-            bg="#14141b",
-            fg="#f59e0b",
-            font=("Segoe UI Symbol", 8, "bold"),
+            image=self._icon_down_rest,
+            bg=self.REST_BG,
             padx=8,
             cursor="hand2",
         )
@@ -370,7 +595,6 @@ class StudioDropdown(_TkFrameBase):
         w_clicked = event.widget
         if cls._is_widget_inside(w_clicked, active) or cls._is_widget_inside(w_clicked, active._popup):
             return
-        # Also verify by screen coordinates in case Windows/Tk redirected event.widget
         try:
             pop = active._popup
             if pop.winfo_exists():
@@ -387,15 +611,19 @@ class StudioDropdown(_TkFrameBase):
         active._close_popup()
 
     def _on_hover_enter(self, _e):
-        self.configure(bg="#252536", highlightbackground="#272732")
-        self.lbl_text.configure(bg="#252536", fg="#ffffff")
-        self.lbl_arrow.configure(bg="#252536")
+        self.configure(bg=self.HOV_BG, highlightbackground="#272732")
+        self.lbl_text.configure(bg=self.HOV_BG, fg="#ffffff")
+        self.lbl_arrow.configure(
+            bg=self.HOV_BG,
+            image=self._icon_up_hov if self._is_open_visual else self._icon_down_hov,
+        )
 
     def _on_hover_leave(self, _e):
         if not self._popup:
-            self.configure(bg="#14141b", highlightbackground="#272732")
-            self.lbl_text.configure(bg="#14141b", fg="#fafafa")
-            self.lbl_arrow.configure(bg="#14141b")
+            self._is_open_visual = False
+            self.configure(bg=self.REST_BG, highlightbackground="#272732")
+            self.lbl_text.configure(bg=self.REST_BG, fg="#fafafa")
+            self.lbl_arrow.configure(bg=self.REST_BG, image=self._icon_down_rest)
 
     def set_items(self, items: List[Dict[str, str]]):
         self._items = list(items)
@@ -427,6 +655,7 @@ class StudioDropdown(_TkFrameBase):
     def _close_popup(self):
         if StudioDropdown._active_dropdown is self:
             StudioDropdown._active_dropdown = None
+        self._is_open_visual = False
         if self._popup:
             self._closed_at = time.monotonic()
             try:
@@ -436,9 +665,9 @@ class StudioDropdown(_TkFrameBase):
             self._popup = None
         try:
             if self.winfo_exists():
-                self.configure(bg="#14141b", highlightbackground="#272732")
-                self.lbl_text.configure(bg="#14141b", fg="#fafafa")
-                self.lbl_arrow.configure(bg="#14141b", text="▼")
+                self.configure(bg=self.REST_BG, highlightbackground="#272732")
+                self.lbl_text.configure(bg=self.REST_BG, fg="#fafafa")
+                self.lbl_arrow.configure(bg=self.REST_BG, image=self._icon_down_rest)
         except Exception:
             pass
 
@@ -446,12 +675,12 @@ class StudioDropdown(_TkFrameBase):
         if StudioDropdown._active_dropdown and StudioDropdown._active_dropdown is not self:
             StudioDropdown._active_dropdown._close_popup()
         StudioDropdown._active_dropdown = self
+        self._is_open_visual = True
 
-        self.lbl_arrow.configure(text="▲", bg="#252536")
-        self.lbl_text.configure(bg="#252536", fg="#ffffff")
-        self.configure(bg="#252536", highlightbackground="#343446")
+        self.lbl_arrow.configure(image=self._icon_up_hov, bg=self.HOV_BG)
+        self.lbl_text.configure(bg=self.HOV_BG, fg="#ffffff")
+        self.configure(bg=self.HOV_BG, highlightbackground="#272732")
 
-        # Parent the popup to the containing Toplevel so modal dialogs never block events
         host_top = self.winfo_toplevel()
         pop = tk.Toplevel(host_top)
         pop.wm_overrideredirect(True)
@@ -492,9 +721,10 @@ class StudioDropdown(_TkFrameBase):
             top_filter = tk.Frame(body, bg="#12121a", padx=8, pady=6)
             top_filter.pack(fill=tk.X)
 
-            tk.Label(
-                top_filter, text="🔎", bg="#12121a", fg="#f59e0b", font=("Segoe UI", 9)
-            ).pack(side=tk.LEFT, padx=(0, 4))
+            search_img = get_tabler_icon_image("search", size=12, fg_hex="#f59e0b", bg_hex="#12121a")
+            lbl_s_ic = tk.Label(top_filter, image=search_img, bg="#12121a")
+            lbl_s_ic._img_ref = search_img  # type: ignore
+            lbl_s_ic.pack(side=tk.LEFT, padx=(0, 6))
 
             ent_search = tk.Entry(
                 top_filter,

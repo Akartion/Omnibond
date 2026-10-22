@@ -76,20 +76,37 @@ WEB_UI_HTML = """<!DOCTYPE html>
   }
   .top-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
+  .ui-icon {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+    vertical-align: -2px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
   .btn {
-    background-color: #14141b;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background-color: var(--panel);
     color: var(--text);
     border: 1px solid #272732;
-    padding: 8px 14px;
+    padding: 8px 13px;
     font-size: 12px;
     font-weight: 700;
     cursor: pointer;
-    transition: background-color 0.15s ease, color 0.15s ease, transform 0.14s ease;
+    transition: background-color 0.15s ease, color 0.15s ease;
     position: relative;
   }
-  .btn:hover { background-color: #252536; color: #ffffff; border-color: #272732; transform: translateY(-1px); }
-  .btn.primary { background-color: #fafafa; color: #09090b; border-color: #fafafa; }
-  .btn.primary:hover { background-color: #f59e0b; color: #09090b; border-color: #f59e0b; }
+  .btn:hover { background-color: #1e1e2c; color: #ffffff; border-color: #272732; }
+  .btn.green, .btn.primary { background-color: #10b981; color: #052e16; border-color: #10b981; }
+  .btn.green:hover, .btn.primary:hover { background-color: #34d399; color: #052e16; border-color: #34d399; }
+  .btn.danger { background-color: #ef4444; color: #ffffff; border-color: #ef4444; }
+  .btn.danger:hover { background-color: #f87171; color: #ffffff; border-color: #f87171; }
   .btn.amber { background-color: #f59e0b; color: #09090b; border-color: #f59e0b; }
   .btn.amber:hover { background-color: #fbbf24; color: #09090b; border-color: #fbbf24; }
   .btn.active { background-color: #1c1912; color: var(--amber); border-color: #3a301a; }
@@ -151,24 +168,26 @@ WEB_UI_HTML = """<!DOCTYPE html>
     overflow-x: auto;
     overscroll-behavior-x: contain;
     background: var(--panel);
+    border-bottom: 1px solid var(--hairline);
     scrollbar-color: #3f3f46 #0c0c0f;
   }
   #adapterBentoGrid {
     display: flex;
-    width: max-content;
-    min-width: 100%;
+    width: 100%;
+    min-width: max-content;
     background: var(--panel);
-    border-bottom: 1px solid var(--hairline);
+    border-bottom: 0;
   }
   #adapterBentoGrid .bento-card {
     flex: 0 0 280px;
     border-right: 1px solid var(--hairline);
-    border-bottom: 1px solid var(--hairline);
+    border-bottom: 0;
   }
   .app-grid-scroll {
     min-height: 240px;
     max-height: min(58vh, 680px);
-    overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
     overscroll-behavior: contain;
     background: var(--panel);
     scrollbar-color: #3f3f46 #0c0c0f;
@@ -176,6 +195,7 @@ WEB_UI_HTML = """<!DOCTYPE html>
   #appBentoGrid {
     background: var(--panel);
     border-bottom: 0;
+    margin-right: -1px;
   }
   #appBentoGrid.list-view {
     display: flex;
@@ -234,8 +254,9 @@ WEB_UI_HTML = """<!DOCTYPE html>
     flex: 0 0 auto;
     align-items: center;
     justify-content: center;
+    gap: 5px;
     height: 24px;
-    padding: 0 6px;
+    padding: 0 9px;
     white-space: nowrap;
     font-family: 'Consolas', monospace;
     font-size: 9px;
@@ -245,25 +266,32 @@ WEB_UI_HTML = """<!DOCTYPE html>
     transition: background-color 0.14s ease, color 0.14s ease;
   }
   .favorite-btn {
-    width: 26px;
+    width: 28px;
     padding: 0;
-    font-size: 12px;
   }
-  .focus-link, .app-card-controls .card-btn {
-    width: 64px;
+  .focus-link {
+    width: 68px;
     color: #d4d4d8;
-    background: #101016;
+    background: var(--panel);
+    border: 1px solid #22222c;
+    text-transform: uppercase;
+  }
+  .app-card-controls .card-btn {
+    width: 82px;
+    padding: 0 10px;
+    color: #d4d4d8;
+    background: var(--panel);
     border: 1px solid #22222c;
     text-transform: uppercase;
   }
   .focus-link:hover, .app-card-controls .card-btn:hover, .favorite-btn:hover {
-    background-color: #242434;
+    background-color: #1e1e2c;
     color: #ffffff;
     border-color: #22222c;
   }
   .favorite-btn {
     color: #d4d4d8;
-    background: #101016;
+    background: var(--panel);
     border: 1px solid #22222c;
   }
   .favorite-btn.active { background-color: #1a1710; color: var(--amber); border-color: #22222c; }
@@ -405,7 +433,7 @@ WEB_UI_HTML = """<!DOCTYPE html>
     padding:5px 9px;
     overflow:hidden;
     color:var(--text);
-    background-color:#14141b;
+    background-color:var(--panel);
     border:1px solid #272732;
     border-radius:0;
     font:700 10px 'Segoe UI',system-ui,sans-serif;
@@ -440,11 +468,20 @@ WEB_UI_HTML = """<!DOCTYPE html>
     text-overflow:ellipsis;
     white-space:nowrap;
   }
-  .styled-select-chevron { flex:0 0 auto; color:var(--amber); font-size:10.5px; line-height:1; pointer-events:none; }
+  .styled-select-chevron {
+    flex:0 0 auto;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--amber);
+    line-height:1;
+    pointer-events:none;
+    transition:transform 0.15s ease;
+  }
+  .styled-select-wrap.open .styled-select-chevron { transform:rotate(180deg); }
   .styled-select-wrap.card-select-wrap .styled-select-chevron {
-    display:inline-block;
+    display:inline-flex;
     color:var(--app-accent, var(--amber));
-    font-size:10.5px;
   }
   .styled-select-filter-head {
     position:sticky;
@@ -540,8 +577,22 @@ WEB_UI_HTML = """<!DOCTYPE html>
     border-left: 2px solid var(--app-accent, var(--amber));
     padding-left: 6px;
   }
-  .view-switch { display:flex; align-items:center; gap:4px; }
-  .view-switch .btn { padding:5px 9px; }
+  .view-switch {
+    display:inline-flex;
+    align-items:stretch;
+    gap:0;
+    height:31px;
+    border:1px solid #272732;
+    background:var(--panel);
+  }
+  .view-switch .btn {
+    border:0;
+    height:100%;
+    padding:0 10px;
+  }
+  .view-switch .btn + .btn {
+    border-left:1px solid #272732;
+  }
   .sort-select-wrap { margin-left:auto; }
 
   .router-toolbar {
@@ -804,12 +855,12 @@ WEB_UI_HTML = """<!DOCTYPE html>
       </div>
     </div>
     <div class="top-actions">
-      <button class="btn primary" id="btnSysProxy" title="Route all Windows HTTP/HTTPS & SOCKS5 traffic across active adapters" onclick="toggleSystemProxy()">◈ Bonding: Off</button>
-      <button class="btn" title="Configure Windows multi-network and IP route optimization" onclick="openNetworkTuning()">⚙ Network Tuning</button>
-      <button class="btn" id="btnRepairNet" title="Reset Windows proxy to Direct, restore automatic interface metrics, and flush DNS" onclick="repairNetwork()">✚ Repair Network</button>
-      <button class="btn" id="btnGraphMode" aria-live="polite" aria-pressed="false" onclick="toggleGraphMode()">∿ Master Speed</button>
-      <button class="btn active" id="btnHideIps" aria-live="polite" aria-pressed="true" title="Hide or show all IP addresses across the dashboard" onclick="toggleHideIps()">👁 Show IPs</button>
-      <button class="btn" id="btnRescanNics" title="Re-scan Windows network adapters and IPv4 addresses" onclick="refreshAdapters()">⟳ Rescan Adapters</button>
+      <button class="btn green" id="btnSysProxy" title="Route all Windows HTTP/HTTPS & SOCKS5 traffic across active adapters" onclick="toggleSystemProxy()"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M9 15l6 -6"/><path d="M11 6l.463 -.536a5 5 0 0 1 7.071 7.072l-.534 .464"/><path d="M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463"/></svg><span>Bonding: Off</span></button>
+      <button class="btn" title="Configure Windows multi-network and IP route optimization" onclick="openNetworkTuning()"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M14 6m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M4 6l8 0"/><path d="M16 6l4 0"/><path d="M8 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M4 12l2 0"/><path d="M10 12l10 0"/><path d="M17 18m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M4 18l11 0"/><path d="M19 18l1 0"/></svg><span>Network Tuning</span></button>
+      <button class="btn" id="btnRepairNet" title="Reset Windows proxy to Direct, restore automatic interface metrics, and flush DNS" onclick="repairNetwork()"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M7 10h3v-3l-3.5 -3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1 -3 3l-6 -6a6 6 0 0 1 -8 -8l3.5 3.5"/></svg><span>Repair Network</span></button>
+      <button class="btn" id="btnGraphMode" aria-live="polite" aria-pressed="false" onclick="toggleGraphMode()"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M3 12h4l3 8l4 -16l3 8h4"/></svg><span>Master Speed</span></button>
+      <button class="btn active" id="btnHideIps" aria-live="polite" aria-pressed="true" title="Hide or show all IP addresses across the dashboard" onclick="toggleHideIps()"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M10.585 10.587a2 2 0 0 0 2.829 2.828"/><path d="M16.681 16.673a8.717 8.717 0 0 1 -4.681 1.327c-3.6 0 -6.6 -2 -9 -6c1.272 -2.12 2.712 -3.678 4.32 -4.674m2.86 -1.146a9.055 9.055 0 0 1 1.82 -.18c3.6 0 6.6 2 9 6c-.666 1.11 -1.379 2.067 -2.138 2.87"/><path d="M3 3l18 18"/></svg><span>Hide IPs</span></button>
+      <button class="btn" id="btnRescanNics" title="Re-scan Windows network adapters and IPv4 addresses" onclick="refreshAdapters()"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/></svg><span>Rescan Adapters</span></button>
     </div>
   </div>
 
@@ -868,13 +919,13 @@ WEB_UI_HTML = """<!DOCTYPE html>
             <option value="SLOW">Speed: Low–High</option>
           </select>
           <div class="view-switch">
-            <button class="btn active" id="gridViewBtn" onclick="setAppView('grid')">▦ Grid</button>
-            <button class="btn" id="listViewBtn" onclick="setAppView('list')">☷ List</button>
+            <button class="btn active" id="gridViewBtn" onclick="setAppView('grid')"><svg class="ui-icon" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg><span>Grid</span></button>
+            <button class="btn" id="listViewBtn" onclick="setAppView('list')"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M9 6l11 0"/><path d="M9 12l11 0"/><path d="M9 18l11 0"/><path d="M5 6l0 .01"/><path d="M5 12l0 .01"/><path d="M5 18l0 .01"/></svg><span>List</span></button>
           </div>
         </div>
         <div class="router-tool-group">
-          <button class="btn" title="Scan running applications" onclick="loadRunningApps()">⌕ Scan</button>
-          <button class="btn amber" title="Choose an application or built-in engine and its network policy" onclick="openAddProgram()">＋ Add Program</button>
+          <button class="btn" title="Scan running applications" onclick="loadRunningApps()"><svg class="ui-icon" viewBox="0 0 24 24"><circle cx="10" cy="10" r="7"/><path d="M21 21l-6 -6"/></svg><span>Scan</span></button>
+          <button class="btn amber" title="Choose an application or built-in engine and its network policy" onclick="openAddProgram()"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M12 5l0 14"/><path d="M5 12l14 0"/></svg><span>Add Program</span></button>
         </div>
       </div>
 
@@ -893,7 +944,7 @@ WEB_UI_HTML = """<!DOCTYPE html>
         <label for="customAppName">Or enter / locate an executable file</label>
         <div class="locate-file-row">
           <input id="customAppName" type="text" placeholder="e.g. game.exe">
-          <button type="button" class="btn" title="Browse and select an executable file on disk" onclick="browseAppExecutable()">📂 Locate File</button>
+          <button type="button" class="btn" title="Browse and select an executable file on disk" onclick="browseAppExecutable()"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M5 4h4l3 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2"/></svg><span>Locate File</span></button>
           <input id="customAppFilePicker" type="file" accept=".exe,*/*" style="display:none" onchange="onCustomAppFilePicked(this)">
         </div>
       </div>
@@ -961,7 +1012,7 @@ WEB_UI_HTML = """<!DOCTYPE html>
       <div class="dl-input-row">
         <span style="font-family:Consolas,monospace;font-size:11px;color:var(--amber);font-weight:700;">URL</span>
         <input type="text" id="dlUrl" class="dl-url-input" placeholder="https://example.com/largefile.iso or https://example.com/stream.m3u8">
-        <button class="btn primary" title="Download across bonded adapters using parallel HTTP ranges" onclick="startDownload()">⬇ Download</button>
+        <button class="btn green" title="Download across bonded adapters using parallel HTTP ranges" onclick="startDownload()"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2"/><path d="M7 11l5 5l5 -5"/><path d="M12 4l0 12"/></svg><span>Download</span></button>
       </div>
       <div class="progress-track">
         <div class="progress-fill" id="dlProgressFill"></div>
@@ -1007,27 +1058,38 @@ function maskIp(ip) {
   return hideIps ? '•••.•••.•••.•••' : s;
 }
 
+const UI_ICONS = {
+  chevronDown: '<svg width="9" height="5" viewBox="0 0 10 6" fill="none"><path d="M1.2 1.2L5 4.8L8.8 1.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  link: '<svg class="ui-icon" viewBox="0 0 24 24"><path d="M9 15l6 -6"/><path d="M11 6l.463 -.536a5 5 0 0 1 7.071 7.072l-.534 .464"/><path d="M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463"/></svg>',
+  power: '<svg class="ui-icon" viewBox="0 0 24 24"><path d="M7 6a7.75 7.75 0 1 0 10 0"/><path d="M12 4l0 8"/></svg>',
+  tool: '<svg class="ui-icon" viewBox="0 0 24 24"><path d="M7 10h3v-3l-3.5 -3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1 -3 3l-6 -6a6 6 0 0 1 -8 -8l3.5 3.5"/></svg>',
+  activity: '<svg class="ui-icon" viewBox="0 0 24 24"><path d="M3 12h4l3 8l4 -16l3 8h4"/></svg>',
+  arrowsSplit: '<svg class="ui-icon" viewBox="0 0 24 24"><path d="M21 17h-5.397a5 5 0 0 1 -4.096 -2.133l-.514 -.734a5 5 0 0 0 -4.096 -2.133h-3.897"/><path d="M21 7h-5.395a5 5 0 0 0 -4.098 2.135l-.51 .73a5 5 0 0 1 -4.097 2.135h-3.9"/><path d="M18 10l3 -3l-3 -3"/><path d="M18 20l3 -3l-3 -3"/></svg>',
+  eye: '<svg class="ui-icon" viewBox="0 0 24 24"><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"/><path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6"/></svg>',
+  eyeOff: '<svg class="ui-icon" viewBox="0 0 24 24"><path d="M10.585 10.587a2 2 0 0 0 2.829 2.828"/><path d="M16.681 16.673a8.717 8.717 0 0 1 -4.681 1.327c-3.6 0 -6.6 -2 -9 -6c1.272 -2.12 2.712 -3.678 4.32 -4.674m2.86 -1.146a9.055 9.055 0 0 1 1.82 -.18c3.6 0 6.6 2 9 6c-.666 1.11 -1.379 2.067 -2.138 2.87"/><path d="M3 3l18 18"/></svg>',
+  refresh: '<svg class="ui-icon" viewBox="0 0 24 24"><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/></svg>',
+  check: '<svg class="ui-icon" viewBox="0 0 24 24"><path d="M5 12l5 5l10 -10"/></svg>',
+  star: '<svg class="ui-icon" viewBox="0 0 24 24"><path d="M12 17.75l-6.172 3.245l1.179 -6.873l-5 -4.867l6.9 -1l3.086 -6.253l3.086 6.253l6.9 1l-5 4.867l1.179 6.873z"/></svg>',
+  starFilled: '<svg class="ui-icon" viewBox="0 0 24 24" style="fill:currentColor"><path d="M12 17.75l-6.172 3.245l1.179 -6.873l-5 -4.867l6.9 -1l3.086 -6.253l3.086 6.253l6.9 1l-5 4.867l1.179 6.873z"/></svg>',
+  focus: '<svg class="ui-icon" style="width:11px;height:11px;" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>',
+  folder: '<svg class="ui-icon" style="width:11px;height:11px;" viewBox="0 0 24 24"><path d="M5 4h4l3 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2"/></svg>'
+};
+
 function updateHideIpsButton() {
   const btn = document.getElementById('btnHideIps');
   if (!btn) return;
-  btn.textContent = hideIps ? '👁 Show IPs' : '👁 Hide IPs';
+  btn.innerHTML = hideIps
+    ? `${UI_ICONS.eyeOff}<span>Hide IPs</span>`
+    : `${UI_ICONS.eye}<span>Show IPs</span>`;
   btn.classList.toggle('active', hideIps);
   btn.setAttribute('aria-pressed', String(hideIps));
 }
 
 function toggleHideIps() {
   hideIps = !hideIps;
-  localStorage.setItem('omnibond-hide-ips', String(hideIps));
   updateHideIpsButton();
   renderedAppStructure = '';
   fetchState();
-}
-
-function setAppColorTheme(theme) {
-  currentAppColorTheme = theme || 'MULTI';
-  localStorage.setItem('omnibond-app-color', currentAppColorTheme);
-  renderedAppStructure = '';
-  if (latestState) fetchState();
 }
 
 function adapterSpeed(adapter) {
@@ -1049,7 +1111,9 @@ function appSpeedHistory(app) {
 function updateGraphModeButton() {
   const button = document.getElementById('btnGraphMode');
   const master = graphMode === 'master';
-  button.textContent = master ? '∿ Master Speed' : '⇄ Bonded Speed';
+  button.innerHTML = master
+    ? `${UI_ICONS.activity}<span>Master Speed</span>`
+    : `${UI_ICONS.arrowsSplit}<span>Bonded Speed</span>`;
   button.classList.toggle('active', !master);
   button.setAttribute('aria-pressed', !master);
   button.title = master
@@ -1087,6 +1151,13 @@ function fmtSpeed(bps) {
   return (bps / 1048576).toFixed(2) + ' MB/s';
 }
 
+function fmtAxisSpeed(bps) {
+  if (!bps || bps <= 1) return '0 B/s';
+  if (bps < 1024) return `${Math.round(bps)} B/s`;
+  if (bps < 1048576) return `${Math.round(bps / 1024)} KB/s`;
+  return `${Math.round(bps / 1048576)} MB/s`;
+}
+
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, char => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -1097,8 +1168,7 @@ function closeStyledSelects(except = null) {
   document.querySelectorAll('.styled-select-wrap.open').forEach(wrap => {
     if (wrap === except) return;
     wrap.classList.remove('open');
-    if (wrap._styledChevron) wrap._styledChevron.textContent = '▼';
-    wrap._styledMenu?.remove();
+        wrap._styledMenu?.remove();
     wrap._styledMenu = null;
     wrap._styledTrigger?.setAttribute('aria-expanded', 'false');
   });
@@ -1171,7 +1241,7 @@ function syncStyledSelect(select) {
       ? document.querySelector(`label[for="${CSS.escape(select.id)}"]`)?.textContent?.trim()
       : '';
     trigger.setAttribute('aria-label', select.getAttribute('aria-label') || linkedLabel || select.title || 'Choose an option');
-    trigger.innerHTML = '<span class="styled-select-trigger-label"></span><span class="styled-select-chevron" aria-hidden="true">▼</span>';
+    trigger.innerHTML = `<span class="styled-select-trigger-label"></span><span class="styled-select-chevron" aria-hidden="true">${UI_ICONS.chevronDown}</span>`;
     wrap.insertBefore(trigger, select);
     wrap._styledTrigger = trigger;
     wrap._styledLabel = trigger.querySelector('.styled-select-trigger-label');
@@ -1282,8 +1352,7 @@ function syncStyledSelect(select) {
       document.body.appendChild(menu);
       wrap._styledMenu = menu;
       wrap.classList.add('open');
-      if (wrap._styledChevron) wrap._styledChevron.textContent = '▲';
-      trigger.setAttribute('aria-expanded', 'true');
+            trigger.setAttribute('aria-expanded', 'true');
       positionStyledSelect(wrap);
       if (select.id !== 'addAppSelect') {
         const selected = menu.querySelector('[aria-selected="true"]:not(:disabled)');
@@ -1639,7 +1708,7 @@ function drawGoogleStyleChart(adapters) {
     ctx.lineTo(w - padR, y);
     ctx.stroke();
     ctx.fillStyle = '#71717a';
-    ctx.fillText(val <= 1 ? '0 B/s' : fmtSpeed(val), 0, y);
+    ctx.fillText(fmtAxisSpeed(val), 0, y);
   }
   ctx.setLineDash([]);
 
@@ -1750,7 +1819,14 @@ async function fetchState() {
     peakTotalBps = Math.max(peakTotalBps, totalBps);
     document.getElementById('liveTotalSpeed').textContent = fmtSpeed(totalBps);
     document.getElementById('peakTotalSpeed').textContent = fmtSpeed(peakTotalBps);
-    document.getElementById('btnSysProxy').textContent = st.system_proxy ? '◈ Bonding: On' : '◈ Bonding: Off';
+    const sysProxyBtn = document.getElementById('btnSysProxy');
+    if (sysProxyBtn) {
+      sysProxyBtn.innerHTML = st.system_proxy
+        ? `${UI_ICONS.power}<span>Bonding: On</span>`
+        : `${UI_ICONS.link}<span>Bonding: Off</span>`;
+      sysProxyBtn.classList.toggle('danger', Boolean(st.system_proxy));
+      sysProxyBtn.classList.toggle('green', !st.system_proxy);
+    }
     document.querySelector('.topbar')?.classList.toggle('bonding-active', Boolean(st.system_proxy) || Date.now() < topbarFeedbackUntil);
     updateGraphModeButton();
     const adapterTelemetryStatus = graphMode === 'master'
@@ -1816,8 +1892,7 @@ async function fetchState() {
         </div>
       </div>
     `).join('');
-    document.getElementById('adapterBentoGrid').style.minWidth = `${Math.max(100, st.adapters.length * 280)}px`;
-    renderAdapterLimits(st.adapters);
+        renderAdapterLimits(st.adapters);
 
     // 02 Applications with per-app speed sparklines & Focus button
     const visibleAppRules = st.app_rules.filter(matchesCurrentAppFilter);
@@ -1868,9 +1943,9 @@ async function fetchState() {
             <div class="card-top">
               <span class="num-badge" style="background:${col}">${String(idx + 1).padStart(2, '0')}</span>
               <div class="app-card-controls">
-                <button class="favorite-btn ${r.is_favorite ? 'active' : ''}" title="${r.is_favorite ? 'Remove from favorites' : 'Add to favorites'}" onclick="toggleFavorite('${r.app_name}', ${!r.is_favorite})">${r.is_favorite ? '★' : '☆'}</button>
-                <button class="focus-link" title="Bring the program window forward" onclick="focusApp('${r.app_name}', ${r.last_pid})">▣ Focus</button>
-                <button class="card-btn" title="Open this program's file or installation location" onclick="locateApp('${r.app_name}', ${r.last_pid})">↗ Location</button>
+                <button class="favorite-btn ${r.is_favorite ? 'active' : ''}" title="${r.is_favorite ? 'Remove from favorites' : 'Add to favorites'}" onclick="toggleFavorite('${r.app_name}', ${!r.is_favorite})">${r.is_favorite ? UI_ICONS.starFilled : UI_ICONS.star}</button>
+                <button class="focus-link" title="Bring the program window forward" onclick="focusApp('${r.app_name}', ${r.last_pid})">${UI_ICONS.focus}<span>Focus</span></button>
+                <button class="card-btn" title="Open this program's file or installation location" onclick="locateApp('${r.app_name}', ${r.last_pid})">${UI_ICONS.folder}<span>Location</span></button>
               </div>
             </div>
             <div class="card-identity">
@@ -2141,18 +2216,18 @@ async function toggleAdapter(ip, enabled) {
   fetchState();
 }
 
-function triggerTopbarActionFeedback(btnId, activeLabel, defaultLabel, durationMs = 2300) {
+function triggerTopbarActionFeedback(btnId, activeHtml, defaultHtml, durationMs = 2300) {
   const btn = document.getElementById(btnId);
   const topbar = document.querySelector('.topbar');
   topbarFeedbackUntil = Date.now() + durationMs;
   topbar?.classList.add('bonding-active');
   if (btn) {
-    btn.textContent = activeLabel;
+    btn.innerHTML = activeHtml;
     btn.classList.add('emerald-flow');
     clearTimeout(btn._feedbackTimer);
     btn._feedbackTimer = setTimeout(() => {
       btn.classList.remove('emerald-flow');
-      btn.textContent = defaultLabel;
+      btn.innerHTML = defaultHtml;
       if (!latestState?.system_proxy && Date.now() >= topbarFeedbackUntil) {
         topbar?.classList.remove('bonding-active');
       }
@@ -2163,10 +2238,15 @@ function triggerTopbarActionFeedback(btnId, activeLabel, defaultLabel, durationM
 async function toggleSystemProxy() { await fetch('/api/system_proxy', {method: 'POST'}); fetchState(); }
 async function repairNetwork() {
   const btn = document.getElementById('btnRepairNet');
-  if (btn) { btn.textContent = '✚ Repairing...'; btn.classList.add('emerald-flow'); }
+  if (btn) { btn.innerHTML = `${UI_ICONS.tool}<span>Repairing...</span>`; btn.classList.add('emerald-flow'); }
   await fetch('/api/repair_network', {method: 'POST'});
   await fetchState();
-  triggerTopbarActionFeedback('btnRepairNet', '✓ Network Repaired', '✚ Repair Network', 2400);
+  triggerTopbarActionFeedback(
+    'btnRepairNet',
+    `${UI_ICONS.check}<span>Network Repaired</span>`,
+    `${UI_ICONS.tool}<span>Repair Network</span>`,
+    2400
+  );
 }
 function openNetworkTuning() {
   closeStyledSelects();
@@ -2271,11 +2351,16 @@ async function saveAdapterLimits(button) {
 async function simulateTrafficBurst() { await fetch('/api/simulate_burst', {method: 'POST'}); fetchState(); }
 async function refreshAdapters() {
   const btn = document.getElementById('btnRescanNics');
-  if (btn) { btn.textContent = '⟳ Scanning...'; btn.classList.add('emerald-flow'); }
+  if (btn) { btn.innerHTML = `${UI_ICONS.refresh}<span>Scanning...</span>`; btn.classList.add('emerald-flow'); }
   await fetch('/api/refresh_adapters', {method: 'POST'});
   await fetchState();
   const cnt = latestState?.adapters?.length || 0;
-  triggerTopbarActionFeedback('btnRescanNics', `✓ ${cnt} Adapters Ready`, '⟳ Rescan Adapters', 2200);
+  triggerTopbarActionFeedback(
+    'btnRescanNics',
+    `${UI_ICONS.check}<span>${cnt} Adapters Ready</span>`,
+    `${UI_ICONS.refresh}<span>Rescan Adapters</span>`,
+    2200
+  );
 }
 async function startDownload() {
   const url = document.getElementById('dlUrl').value.trim();
